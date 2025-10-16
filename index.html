@@ -46,6 +46,19 @@
                     <button onclick="logout()" class="logout-btn">Выйти</button>
                 </div>
             </div>
+
+             <!-- Мобильное меню -->
+    <div class="mobile-only">
+        <div class="mobile-menu">
+            <button onclick="toggleMobileMenu()" class="menu-btn">☰ Меню</button>
+            <div id="mobileMenu" class="mobile-menu-content">
+                <button onclick="scrollToSection('students')">👥 Студенты</button>
+                <button onclick="scrollToSection('subjects')">📚 Предметы</button>
+                <button onclick="scrollToSection('grades')">📝 Оценки</button>
+                <button onclick="scrollToSection('stats')">📊 Статистика</button>
+            </div>
+        </div>
+    </div>
             <p id="currentGroup">Техникум информационных технологий</p>
         </header>
 

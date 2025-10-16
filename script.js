@@ -923,3 +923,54 @@ window.onload = function() {
     document.getElementById('loginUsername').value = 'prepod';
     document.getElementById('loginPassword').value = '123456';
 };
+
+// Мобильные функции
+function toggleMobileMenu() {
+    const menu = document.getElementById('mobileMenu');
+    menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+}
+
+function scrollToSection(section) {
+    const sections = {
+        'students': 'section:nth-child(4)',
+        'subjects': 'section:nth-child(3)',
+        'grades': 'section:nth-child(5)',
+        'stats': 'section:nth-child(6)'
+    };
+    
+    const element = document.querySelector(sections[section]);
+    if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+        toggleMobileMenu(); // Закрываем меню после выбора
+    }
+}
+
+// Определяем мобильное устройство
+function isMobileDevice() {
+    return window.innerWidth <= 768;
+}
+
+// Адаптируем интерфейс при загрузке и изменении размера
+function adaptInterface() {
+    if (isMobileDevice()) {
+        document.body.classList.add('mobile');
+        console.log('Мобильный интерфейс активирован');
+    } else {
+        document.body.classList.remove('mobile');
+    }
+}
+
+// Слушаем изменение размера окна
+window.addEventListener('resize', adaptInterface);
+
+// Добавляем в конец window.onload
+window.onload = function() {
+    updateTeacherSelect();
+    
+    // Автоматически заполняем тестовые данные для демонстрации
+    document.getElementById('loginUsername').value = 'prepod';
+    document.getElementById('loginPassword').value = '123456';
+    
+    // Адаптируем интерфейс
+    adaptInterface();
+};
