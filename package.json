@@ -1,12 +1,11 @@
 {
   "name": "e-zachetka",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Электронная зачётка для техникума",
-  "main": "index.html",
+  "main": "server.js",
   "scripts": {
-    "start": "open index.html",
-    "deploy": "node deploy.js",
-    "commit": "git add . && git commit -m \"Обновление проекта\" && git push"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "keywords": ["зачётка", "техникум", "образование"],
   "author": "Ваше Имя",

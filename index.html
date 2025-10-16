@@ -10,7 +10,7 @@
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <!-- Экран авторизации -->
@@ -27,18 +27,18 @@
                     <div class="mb-3">
                         <label for="loginUsername" class="form-label">Логин</label>
                         <input type="text" class="form-control form-control-lg" id="loginUsername" 
-                               value="prepod" placeholder="Введите логин">
+                               value="prepod" placeholder="Введите логин" required>
                     </div>
                     
                     <div class="mb-3">
                         <label for="loginPassword" class="form-label">Пароль</label>
                         <input type="password" class="form-control form-control-lg" id="loginPassword" 
-                               value="123456" placeholder="Введите пароль">
+                               value="123456" placeholder="Введите пароль" required>
                     </div>
                     
                     <div class="mb-3">
                         <label for="loginRole" class="form-label">Роль</label>
-                        <select class="form-select form-select-lg" id="loginRole">
+                        <select class="form-select form-select-lg" id="loginRole" required>
                             <option value="teacher">Преподаватель</option>
                             <option value="admin">Администратор</option>
                         </select>
@@ -303,7 +303,7 @@
                     </div>
                 </div>
 
-                <!-- Ближайшие дедлайны -->
+                <!-- Ближайшие события -->
                 <div class="row">
                     <div class="col-12">
                         <div class="card shadow">
@@ -327,45 +327,45 @@
                 </div>
             </div>
 
-                        <!-- Остальные вкладки -->
+            <!-- Остальные вкладки -->
             <div id="studentsTab" class="tab-content" style="display: none;">
-                <!-- Содержимое вкладки студентов -->
+                <!-- Содержимое будет генерироваться динамически -->
             </div>
 
             <div id="subjectsTab" class="tab-content" style="display: none;">
-                <!-- Содержимое вкладки предметов -->
+                <!-- Содержимое будет генерироваться динамически -->
             </div>
 
             <div id="gradesTab" class="tab-content" style="display: none;">
-                <!-- Содержимое вкладки оценок -->
-            </div>
-
-            <div id="calendarTab" class="tab-content" style="display: none;">
-                <!-- Содержимое вкладки календаря -->
-            </div>
-
-            <div id="reportsTab" class="tab-content" style="display: none;">
-                <!-- Содержимое вкладки отчётов -->
-            </div>
-
-            <div id="notificationsTab" class="tab-content" style="display: none;">
-                <!-- Содержимое вкладки уведомлений -->
+                <!-- Содержимое будет генерироваться динамически -->
             </div>
 
             <div id="attendanceTab" class="tab-content" style="display: none;">
-                <!-- Содержимое вкладки зачётных мероприятий -->
+                <!-- Содержимое будет генерироваться динамически -->
+            </div>
+
+            <div id="calendarTab" class="tab-content" style="display: none;">
+                <!-- Содержимое будет генерироваться динамически -->
+            </div>
+
+            <div id="reportsTab" class="tab-content" style="display: none;">
+                <!-- Содержимое будет генерироваться динамически -->
+            </div>
+
+            <div id="notificationsTab" class="tab-content" style="display: none;">
+                <!-- Содержимое будет генерироваться динамически -->
             </div>
 
             <div id="usersTab" class="tab-content" style="display: none;">
-                <!-- Содержимое вкладки пользователей -->
+                <!-- Содержимое будет генерироваться динамически -->
             </div>
 
             <div id="backupTab" class="tab-content" style="display: none;">
-                <!-- Содержимое вкладки резервных копий -->
+                <!-- Содержимое будет генерироваться динамически -->
             </div>
 
             <div id="settingsTab" class="tab-content" style="display: none;">
-                <!-- Содержимое вкладки настроек -->
+                <!-- Содержимое будет генерироваться динамически -->
             </div>
 
             <!-- Вкладки которые не должны отображаться в меню -->
@@ -376,8 +376,6 @@
                     <p class="text-muted">Этот раздел будет доступен в следующем обновлении</p>
                 </div>
             </div>
-
-            <!-- Добавь остальные вкладки по аналогии -->
         </div>
     </div>
 
@@ -394,7 +392,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-                    <button type="button" class="btn btn-primary" onclick="printReport()">
+                    <button type="button" class="btn btn-primary" onclick="app.printReport()">
                         <i class="bi bi-printer me-1"></i>Печать
                     </button>
                 </div>
@@ -402,9 +400,62 @@
         </div>
     </div>
 
+    <!-- Модальное окно добавления события -->
+    <div class="modal fade" id="addEventModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Добавить событие</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addEventForm">
+                        <div class="mb-3">
+                            <label for="eventTitle" class="form-label">Название события</label>
+                            <input type="text" class="form-control" id="eventTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventType" class="form-label">Тип события</label>
+                            <select class="form-select" id="eventType" required>
+                                <option value="lesson">Занятие</option>
+                                <option value="deadline">Дедлайн сдачи</option>
+                                <option value="exam">Экзамен</option>
+                                <option value="meeting">Совещание</option>
+                                <option value="other">Другое</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="eventDate" class="form-label">Дата</label>
+                                    <input type="date" class="form-control" id="eventDate" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="eventTime" class="form-label">Время (необязательно)</label>
+                                    <input type="time" class="form-control" id="eventTime">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventDescription" class="form-label">Описание</label>
+                            <textarea class="form-control" id="eventDescription" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-primary" onclick="addCalendarEvent()">Добавить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
-    <script src="script.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Упрощенный app.js -->
+<script src="app.js"></script>
 </body>
 </html>
