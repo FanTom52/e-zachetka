@@ -1,157 +1,401 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Электронная зачётка техникума</title>
+    <title>Электронная зачётка - Техникум</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <!-- Экран авторизации -->
     <div id="loginScreen" class="login-container">
-        <div class="login-form">
-            <h1>🎓 Электронная зачётка</h1>
-            <p>ГБПОУ Уренский индустриально-энергетический техникум</p>
-            
-            <div class="form-group">
-                <input type="text" id="loginUsername" placeholder="Логин" value="prepod">
-            </div>
-            <div class="form-group">
-                <input type="password" id="loginPassword" placeholder="Пароль" value="123456">
-            </div>
-            <div class="form-group">
-                <select id="loginRole">
-                    <option value="teacher">Преподаватель</option>
-                    <option value="admin">Администратор</option>
-                </select>
-            </div>
-            <button onclick="login()">Войти в систему</button>
-            
-            <div class="demo-accounts">
-                <h3>Тестовые аккаунты:</h3>
-                <p><strong>Преподаватель:</strong> prepod / 123456</p>
-                <p><strong>Администратор:</strong> admin / admin123</p>
+        <div class="card login-card shadow-lg">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <i class="bi bi-journal-bookmark-fill text-primary display-1"></i>
+                    <h1 class="h3 fw-bold mt-3">Электронная зачётка</h1>
+                    <p class="text-muted">Техникум информационных технологий</p>
+                </div>
+                
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label for="loginUsername" class="form-label">Логин</label>
+                        <input type="text" class="form-control form-control-lg" id="loginUsername" 
+                               value="prepod" placeholder="Введите логин">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="loginPassword" class="form-label">Пароль</label>
+                        <input type="password" class="form-control form-control-lg" id="loginPassword" 
+                               value="123456" placeholder="Введите пароль">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="loginRole" class="form-label">Роль</label>
+                        <select class="form-select form-select-lg" id="loginRole">
+                            <option value="teacher">Преподаватель</option>
+                            <option value="admin">Администратор</option>
+                        </select>
+                    </div>
+                    
+                    <button type="button" class="btn btn-primary btn-lg w-100 mb-3" onclick="login()">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Войти в систему
+                    </button>
+                </form>
+                
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="bi bi-info-circle me-2"></i>Тестовые аккаунты:</h6>
+                        <p class="mb-1 small"><strong>Преподаватель:</strong> prepod / 123456</p>
+                        <p class="mb-0 small"><strong>Администратор:</strong> admin / admin123</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Основной интерфейс (скрыт до авторизации) -->
-    <div id="mainApp" class="container" style="display: none;">
-        <header>
-            <div class="header-top">
-                <h1>🎓 Электронная зачётка</h1>
-                <div class="user-info">
-                    <span id="currentUser">Преподаватель</span>
-                    <span id="currentRole" class="role-badge"></span>
-                    <button onclick="logout()" class="logout-btn">Выйти</button>
+    <!-- Основное приложение -->
+    <div id="mainApp" style="display: none;">
+        <!-- Навигационная панель -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+            <div class="container-fluid">
+                <a class="navbar-brand fw-bold" href="#">
+                    <i class="bi bi-journal-bookmark-fill me-2"></i>Электронная зачётка
+                </a>
+                
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showTab('dashboard')">
+                                <i class="bi bi-speedometer2 me-1"></i>Главная
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showTab('students')">
+                                <i class="bi bi-people me-1"></i>Студенты
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showTab('subjects')">
+                                <i class="bi bi-book me-1"></i>Предметы
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showTab('grades')">
+                                <i class="bi bi-pencil-square me-1"></i>Оценки
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showTab('calendar')">
+                                <i class="bi bi-calendar me-1"></i>Календарь
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showTab('reports')">
+                                <i class="bi bi-graph-up me-1"></i>Отчёты
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown" id="adminNavItem" style="display: none;">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-gear me-1"></i>Администрирование
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="showTab('users')">Пользователи</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="showTab('backup')">Резервные копии</a></li>
+                            </ul>
+                        </li>
+                    </ul>
+                    
+                    <div class="navbar-nav">
+                        <div class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-person-circle me-1"></i>
+                                <span id="currentUserNav">Преподаватель</span>
+                                <span id="currentRoleNav" class="badge bg-light text-dark ms-1"></span>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><span class="dropdown-item-text small text-muted" id="currentUserEmail"></span></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#" onclick="showTab('profile')">
+                                    <i class="bi bi-person me-2"></i>Профиль
+                                </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="showTab('notifications')">
+                                    <i class="bi bi-bell me-2"></i>Уведомления
+                                    <span id="notificationBadgeNav" class="badge bg-danger ms-1" style="display: none;">0</span>
+                                </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="showTab('settings')">
+                                    <i class="bi bi-sliders me-2"></i>Настройки
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="logout()">
+                                    <i class="bi bi-box-arrow-right me-2"></i>Выйти
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Основной контент -->
+        <div class="container-fluid py-4">
+            <!-- Дашборд -->
+            <div id="dashboardTab" class="tab-content">
+                <div class="row">
+                    <div class="col-12 mb-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="h3 mb-0">
+                                <i class="bi bi-speedometer2 me-2 text-primary"></i>Главная панель
+                            </h2>
+                            <div class="text-muted" id="currentDate"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Статистика -->
+                <div class="row mb-4">
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card border-start border-primary border-4 shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col me-2">
+                                        <div class="text-xs fw-bold text-primary text-uppercase mb-1">
+                                            Студентов
+                                        </div>
+                                        <div class="h5 mb-0 fw-bold text-gray-800" id="statStudents">0</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="bi bi-people fs-1 text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card border-start border-success border-4 shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col me-2">
+                                        <div class="text-xs fw-bold text-success text-uppercase mb-1">
+                                            Предметов
+                                        </div>
+                                        <div class="h5 mb-0 fw-bold text-gray-800" id="statSubjects">0</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="bi bi-book fs-1 text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card border-start border-info border-4 shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col me-2">
+                                        <div class="text-xs fw-bold text-info text-uppercase mb-1">
+                                            Оценок
+                                        </div>
+                                        <div class="h5 mb-0 fw-bold text-gray-800" id="statGrades">0</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="bi bi-pencil-square fs-1 text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card border-start border-warning border-4 shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col me-2">
+                                        <div class="text-xs fw-bold text-warning text-uppercase mb-1">
+                                            Средний балл
+                                        </div>
+                                        <div class="h5 mb-0 fw-bold text-gray-800" id="statAverage">0.00</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="bi bi-graph-up fs-1 text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Быстрые действия и уведомления -->
+                <div class="row">
+                    <div class="col-lg-8 mb-4">
+                        <div class="card shadow">
+                            <div class="card-header bg-white py-3">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-lightning me-2 text-warning"></i>Быстрые действия
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-sm-6 col-md-3">
+                                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="showTab('students')">
+                                            <i class="bi bi-person-plus fs-4 d-block mb-2"></i>
+                                            Добавить студента
+                                        </button>
+                                    </div>
+                                    <div class="col-sm-6 col-md-3">
+                                        <button class="btn btn-outline-success w-100 h-100 py-3" onclick="showTab('subjects')">
+                                            <i class="bi bi-journal-plus fs-4 d-block mb-2"></i>
+                                            Добавить предмет
+                                        </button>
+                                    </div>
+                                    <div class="col-sm-6 col-md-3">
+                                        <button class="btn btn-outline-info w-100 h-100 py-3" onclick="showTab('grades')">
+                                            <i class="bi bi-pen fs-4 d-block mb-2"></i>
+                                            Выставить оценку
+                                        </button>
+                                    </div>
+                                    <div class="col-sm-6 col-md-3">
+                                        <button class="btn btn-outline-warning w-100 h-100 py-3" onclick="showTab('reports')">
+                                            <i class="bi bi-printer fs-4 d-block mb-2"></i>
+                                            Создать отчёт
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4 mb-4">
+                        <div class="card shadow">
+                            <div class="card-header bg-white py-3">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-bell me-2 text-danger"></i>Последние уведомления
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="recentNotifications">
+                                    <p class="text-muted text-center">Уведомлений нет</p>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="showTab('notifications')">
+                                        Все уведомления
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ближайшие дедлайны -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card shadow">
+                            <div class="card-header bg-white py-3">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-calendar-check me-2 text-success"></i>Ближайшие события
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="upcomingEvents">
+                                    <p class="text-muted text-center">Событий на ближайшую неделю нет</p>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="showTab('calendar')">
+                                        <i class="bi bi-calendar me-1"></i>Весь календарь
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-             <!-- Мобильное меню -->
-    <div class="mobile-only">
-        <div class="mobile-menu">
-            <button onclick="toggleMobileMenu()" class="menu-btn">☰ Меню</button>
-            <div id="mobileMenu" class="mobile-menu-content">
-                <button onclick="scrollToSection('students')">👥 Студенты</button>
-                <button onclick="scrollToSection('subjects')">📚 Предметы</button>
-                <button onclick="scrollToSection('grades')">📝 Оценки</button>
-                <button onclick="scrollToSection('stats')">📊 Статистика</button>
+                        <!-- Остальные вкладки -->
+            <div id="studentsTab" class="tab-content" style="display: none;">
+                <!-- Содержимое вкладки студентов -->
             </div>
+
+            <div id="subjectsTab" class="tab-content" style="display: none;">
+                <!-- Содержимое вкладки предметов -->
+            </div>
+
+            <div id="gradesTab" class="tab-content" style="display: none;">
+                <!-- Содержимое вкладки оценок -->
+            </div>
+
+            <div id="calendarTab" class="tab-content" style="display: none;">
+                <!-- Содержимое вкладки календаря -->
+            </div>
+
+            <div id="reportsTab" class="tab-content" style="display: none;">
+                <!-- Содержимое вкладки отчётов -->
+            </div>
+
+            <div id="notificationsTab" class="tab-content" style="display: none;">
+                <!-- Содержимое вкладки уведомлений -->
+            </div>
+
+            <div id="usersTab" class="tab-content" style="display: none;">
+                <!-- Содержимое вкладки пользователей -->
+            </div>
+
+            <div id="backupTab" class="tab-content" style="display: none;">
+                <!-- Содержимое вкладки резервных копий -->
+            </div>
+
+            <div id="settingsTab" class="tab-content" style="display: none;">
+                <!-- Содержимое вкладки настроек -->
+            </div>
+
+            <!-- Вкладки которые не должны отображаться в меню -->
+            <div id="profileTab" class="tab-content" style="display: none;">
+                <div class="text-center py-5">
+                    <i class="bi bi-person display-1 text-muted"></i>
+                    <h4 class="text-muted mt-3">Профиль в разработке</h4>
+                    <p class="text-muted">Этот раздел будет доступен в следующем обновлении</p>
+                </div>
+            </div>
+
+            <!-- Добавь остальные вкладки по аналогии -->
         </div>
     </div>
-            <p id="currentGroup">Техникум информационных технологий</p>
-        </header>
 
-        <!-- Панель управления (только для админа) -->
-        <div id="adminPanel" class="section" style="display: none;">
-            <h2>⚙️ Панель администратора</h2>
-            <div class="form-group">
-                <button onclick="showUserManagement()">👥 Управление пользователями</button>
-                <button onclick="showBackupManagement()">💾 Резервные копии</button>
-                <button onclick="showSystemStats()">📈 Системная статистика</button>
-            </div>
-            <div id="adminContent"></div>
-        </div>
-
-        <!-- Форма добавления студента -->
-        <div class="section">
-            <h2>➕ Добавить студента</h2>
-            <div class="form-group">
-                <input type="text" id="studentName" placeholder="ФИО студента">
-                <input type="text" id="studentGroup" placeholder="Группа">
-                <button onclick="addStudent()">Добавить</button>
-            </div>
-        </div>
-
-        <!-- Форма добавления предмета -->
-        <div class="section">
-            <h2>📚 Добавить предмет</h2>
-            <div class="form-group">
-                <input type="text" id="subjectName" placeholder="Название предмета">
-                <select id="subjectTeacher">
-                    <option value="">Выберите преподавателя</option>
-                </select>
-                <button onclick="addSubject()">Добавить</button>
-            </div>
-        </div>
-
-        <!-- Форма выставления оценки -->
-        <div class="section">
-            <h2>📝 Выставить оценку</h2>
-            <div class="form-group">
-                <select id="studentSelect"></select>
-                <select id="subjectSelect"></select>
-                <select id="gradeSelect">
-                    <option value="5">5 (Отлично)</option>
-                    <option value="4">4 (Хорошо)</option>
-                    <option value="3">3 (Удовлетворительно)</option>
-                    <option value="2">2 (Неудовлетворительно)</option>
-                    <option value="зачёт">Зачёт</option>
-                    <option value="незачёт">Незачёт</option>
-                </select>
-                <button onclick="addGrade()">Выставить оценку</button>
-            </div>
-        </div>
-
-        <!-- Статистика и отчёты -->
-        <div class="section">
-            <h2>📊 Статистика и отчёты</h2>
-            <div class="form-group">
-                <button onclick="showStatistics()">📈 Показать статистику</button>
-                <button onclick="generateReport()">📄 Сформировать отчёт</button>
-                <button onclick="showStudentProgress()">👨‍🎓 Успеваемость по студентам</button>
-            </div>
-            <div id="statisticsContainer"></div>
-        </div>
-
-        <!-- Отображение данных -->
-        <div class="section">
-            <h2>👥 Список студентов и оценок</h2>
-            <div id="studentsList"></div>
-        </div>
-
-        <!-- Управление данными -->
-        <div class="section">
-            <h2>⚙️ Управление</h2>
-            <div class="form-group">
-                <button onclick="saveData()">💾 Сохранить данные</button>
-                <button onclick="loadData()">📂 Загрузить данные</button>
-                <button onclick="exportData()">📄 Экспорт в файл</button>
-                <input type="file" id="fileInput" accept=".json" style="display: none;">
+    <!-- Модальные окна -->
+    <div class="modal fade" id="reportModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">📊 Отчёт по успеваемости</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="reportContent"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                    <button type="button" class="btn btn-primary" onclick="printReport()">
+                        <i class="bi bi-printer me-1"></i>Печать
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Модальное окно для отчётов -->
-    <div id="reportModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2>📊 Отчёт по успеваемости</h2>
-            <div id="reportContent"></div>
-            <button onclick="printReport()">🖨️ Печать отчёта</button>
-        </div>
-    </div>
-
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
     <script src="script.js"></script>
 </body>
 </html>
