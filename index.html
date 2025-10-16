@@ -68,6 +68,27 @@
         </div>
     </div>
 
+    <!-- Статистика и отчёты -->
+<div class="section">
+    <h2>📊 Статистика и отчёты</h2>
+    <div class="form-group">
+        <button onclick="showStatistics()">📈 Показать статистику</button>
+        <button onclick="generateReport()">📄 Сформировать отчёт</button>
+        <button onclick="showStudentProgress()">👨‍🎓 Успеваемость по студентам</button>
+    </div>
+    <div id="statisticsContainer"></div>
+</div>
+
+<!-- Модальное окно для отчётов -->
+<div id="reportModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h2>📊 Отчёт по успеваемости</h2>
+        <div id="reportContent"></div>
+        <button onclick="printReport()">🖨️ Печать отчёта</button>
+    </div>
+</div>
+
     <script src="script.js"></script>
 </body>
 </html>
