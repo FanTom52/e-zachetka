@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Электронная зачётка техникума</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎓 Электронная зачётка</h1>
+            <p>Техникум информационных технологий</p>
+        </header>
+
+        <!-- Форма добавления студента -->
+        <div class="section">
+            <h2>➕ Добавить студента</h2>
+            <div class="form-group">
+                <input type="text" id="studentName" placeholder="ФИО студента">
+                <input type="text" id="studentGroup" placeholder="Группа">
+                <button onclick="addStudent()">Добавить</button>
+            </div>
+        </div>
+
+        <!-- Форма добавления предмета -->
+        <div class="section">
+            <h2>📚 Добавить предмет</h2>
+            <div class="form-group">
+                <input type="text" id="subjectName" placeholder="Название предмета">
+                <button onclick="addSubject()">Добавить</button>
+            </div>
+        </div>
+
+        <!-- Форма выставления оценки -->
+        <div class="section">
+            <h2>📝 Выставить оценку</h2>
+            <div class="form-group">
+                <select id="studentSelect"></select>
+                <select id="subjectSelect"></select>
+                <select id="gradeSelect">
+                    <option value="5">5 (Отлично)</option>
+                    <option value="4">4 (Хорошо)</option>
+                    <option value="3">3 (Удовлетворительно)</option>
+                    <option value="2">2 (Неудовлетворительно)</option>
+                    <option value="зачёт">Зачёт</option>
+                    <option value="незачёт">Незачёт</option>
+                </select>
+                <button onclick="addGrade()">Выставить оценку</button>
+            </div>
+        </div>
+
+        <!-- Отображение данных -->
+        <div class="section">
+            <h2>👥 Список студентов и оценок</h2>
+            <div id="studentsList"></div>
+        </div>
+
+        <!-- Управление данными -->
+        <div class="section">
+            <h2>⚙️ Управление</h2>
+            <div class="form-group">
+                <button onclick="saveData()">💾 Сохранить данные</button>
+                <button onclick="loadData()">📂 Загрузить данные</button>
+                <button onclick="exportData()">📄 Экспорт в файл</button>
+                <input type="file" id="fileInput" accept=".json" style="display: none;">
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
