@@ -18,33 +18,15 @@ class EZachetkaApp {
     }
 
     init() {
-        this.setupDefaultUsers();
-        console.log('Электронная зачётка инициализирована!');
-    }
-
-    setupDefaultUsers() {
-        const appData = StorageManager.getAppData();
-        if (appData.users.length === 0) {
-            appData.users = [
-                {
-                    id: Helpers.generateId(),
-                    username: 'prepod',
-                    password: '123456',
-                    name: 'Иванова Мария Петровна',
-                    role: 'teacher',
-                    subjects: ['Математика', 'Физика']
-                },
-                {
-                    id: Helpers.generateId(),
-                    username: 'admin',
-                    password: 'admin123',
-                    name: 'Администратор Системы',
-                    role: 'admin',
-                    subjects: []
-                }
-            ];
-            StorageManager.saveAppData(appData);
-        }
+    console.log('🎯 init() вызван');
+    
+    // Настраиваем пользователей по умолчанию
+    this.setupDefaultUsers();
+    console.log('👥 Пользователи настроены:', this.appData.users);
+    
+    // Пытаемся автоматически войти
+    this.autoLogin();
+    console.log('🏁 Инициализация завершена');
     }
 
     showTab(tabName) {
@@ -211,6 +193,122 @@ class EZachetkaApp {
             }
         }
     }
+    constructor() {
+    console.log('🚀 Конструктор EZachetkaApp запущен');
+    
+    // 1. Сначала загружаем данные системы
+    this.currentTab = 'dashboard';
+    this.appData = this.loadData();
+    
+    // 2. Потом загружаем текущего пользователя (чтобы были данные для проверки)
+    this.currentUser = this.loadCurrentUser();
+    console.log('📋 Загруженный пользователь:', this.currentUser);
+    
+    // 3. Инициализируем
+    this.init();
+    }
+    saveCurrentUser() {
+    if (this.currentUser) {
+        const userData = {
+            ...this.currentUser,
+            loginTime: new Date().getTime() // Сохраняем время входа
+        };
+        localStorage.setItem('e-zachetka-current-user', JSON.stringify(userData));
+    } else {
+        localStorage.removeItem('e-zachetka-current-user');
+    }
+    }
+    loadCurrentUser() {
+    const saved = localStorage.getItem('e-zachetka-current-user');
+    if (!saved) return null;
+    
+    try {
+        const storedUser = JSON.parse(saved);
+        return this.validateStoredUser(storedUser);
+    } catch (error) {
+        console.error('Ошибка загрузки пользователя:', error);
+        return null;
+    }
+    }
+    login(username, password, role) {
+    if (!username || !password) {
+        this.showAlert('Ошибка', 'Заполните все поля!', 'warning');
+        return false;
+    }
+
+    const user = this.appData.users.find(u => 
+        u.username === username && 
+        u.password === password && 
+        u.role === role
+    );
+
+    if (user) {
+        this.currentUser = user;
+        this.appData.system.totalLogins++;
+        this.saveData();
+        this.saveCurrentUser(); // 🔽 СОХРАНЯЕМ ПОЛЬЗОВАТЕЛЯ
+        return true;
+    }
+
+    this.showAlert('Ошибка входа', 'Неверный логин, пароль или роль!', 'danger');
+    return false;
+    }
+    logout() {
+    this.currentUser = null;
+    this.saveCurrentUser(); // 🔽 ОЧИЩАЕМ СОХРАНЕНИЕ
+    return true;
+    }
+    autoLogin() {
+    if (this.currentUser) {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        document.getElementById('currentUserNav').textContent = this.currentUser.name;
+        document.getElementById('currentRoleNav').textContent = this.currentUser.role === 'admin' ? 'Админ' : 'Преподаватель';
+        document.getElementById('currentUserEmail').textContent = this.currentUser.username;
+        
+        if (this.currentUser.role === 'admin') {
+            document.getElementById('adminNavItem').style.display = 'block';
+        }
+        
+        this.loadDashboard();
+        this.showTab('dashboard');
+        
+        this.showAlert('Успех', `С возвращением, ${this.currentUser.name}!`, 'success');
+    }
+    }
+    validateStoredUser(storedUser) {
+    console.log('🔍 Валидация пользователя:', storedUser);
+    
+    if (!storedUser || !storedUser.id) {
+        console.log('❌ Нет ID пользователя');
+        return null;
+    }
+    
+    // Загружаем данные если они еще не загружены
+    if (!this.appData) {
+        this.appData = this.loadData();
+    }
+    
+    // Проверяем, существует ли пользователь в системе
+    const validUser = this.appData.users.find(u => u.id == storedUser.id);
+    console.log('👥 Найденный пользователь в системе:', validUser);
+    
+    if (!validUser) {
+        console.log('❌ Пользователь не найден в системе');
+        return null;
+    }
+    
+    // Проверяем, не изменились ли критичные данные
+    if (validUser.username !== storedUser.username || 
+        validUser.role !== storedUser.role) {
+        console.log('❌ Данные пользователя изменились');
+        return null;
+    }
+    
+    console.log('✅ Пользователь прошел валидацию');
+    return validUser;
+    }
+
 }
 
 // Инициализация приложения
@@ -264,6 +362,8 @@ window.addStudent = function() {
         app.loadStudentsTab();
     }
 };
+
+
 
 // Делаем app глобально доступным
 window.app = app;
