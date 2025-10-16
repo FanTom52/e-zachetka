@@ -7,11 +7,58 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
+    <!-- Экран авторизации -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-form">
             <h1>🎓 Электронная зачётка</h1>
-            <p>Техникум информационных технологий</p>
+            <p>ГБПОУ Уренский индустриально-энергетический техникум</p>
+            
+            <div class="form-group">
+                <input type="text" id="loginUsername" placeholder="Логин" value="prepod">
+            </div>
+            <div class="form-group">
+                <input type="password" id="loginPassword" placeholder="Пароль" value="123456">
+            </div>
+            <div class="form-group">
+                <select id="loginRole">
+                    <option value="teacher">Преподаватель</option>
+                    <option value="admin">Администратор</option>
+                </select>
+            </div>
+            <button onclick="login()">Войти в систему</button>
+            
+            <div class="demo-accounts">
+                <h3>Тестовые аккаунты:</h3>
+                <p><strong>Преподаватель:</strong> prepod / 123456</p>
+                <p><strong>Администратор:</strong> admin / admin123</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной интерфейс (скрыт до авторизации) -->
+    <div id="mainApp" class="container" style="display: none;">
+        <header>
+            <div class="header-top">
+                <h1>🎓 Электронная зачётка</h1>
+                <div class="user-info">
+                    <span id="currentUser">Преподаватель</span>
+                    <span id="currentRole" class="role-badge"></span>
+                    <button onclick="logout()" class="logout-btn">Выйти</button>
+                </div>
+            </div>
+            <p id="currentGroup">Техникум информационных технологий</p>
         </header>
+
+        <!-- Панель управления (только для админа) -->
+        <div id="adminPanel" class="section" style="display: none;">
+            <h2>⚙️ Панель администратора</h2>
+            <div class="form-group">
+                <button onclick="showUserManagement()">👥 Управление пользователями</button>
+                <button onclick="showBackupManagement()">💾 Резервные копии</button>
+                <button onclick="showSystemStats()">📈 Системная статистика</button>
+            </div>
+            <div id="adminContent"></div>
+        </div>
 
         <!-- Форма добавления студента -->
         <div class="section">
@@ -28,6 +75,9 @@
             <h2>📚 Добавить предмет</h2>
             <div class="form-group">
                 <input type="text" id="subjectName" placeholder="Название предмета">
+                <select id="subjectTeacher">
+                    <option value="">Выберите преподавателя</option>
+                </select>
                 <button onclick="addSubject()">Добавить</button>
             </div>
         </div>
@@ -50,6 +100,17 @@
             </div>
         </div>
 
+        <!-- Статистика и отчёты -->
+        <div class="section">
+            <h2>📊 Статистика и отчёты</h2>
+            <div class="form-group">
+                <button onclick="showStatistics()">📈 Показать статистику</button>
+                <button onclick="generateReport()">📄 Сформировать отчёт</button>
+                <button onclick="showStudentProgress()">👨‍🎓 Успеваемость по студентам</button>
+            </div>
+            <div id="statisticsContainer"></div>
+        </div>
+
         <!-- Отображение данных -->
         <div class="section">
             <h2>👥 Список студентов и оценок</h2>
@@ -68,26 +129,15 @@
         </div>
     </div>
 
-    <!-- Статистика и отчёты -->
-<div class="section">
-    <h2>📊 Статистика и отчёты</h2>
-    <div class="form-group">
-        <button onclick="showStatistics()">📈 Показать статистику</button>
-        <button onclick="generateReport()">📄 Сформировать отчёт</button>
-        <button onclick="showStudentProgress()">👨‍🎓 Успеваемость по студентам</button>
+    <!-- Модальное окно для отчётов -->
+    <div id="reportModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>📊 Отчёт по успеваемости</h2>
+            <div id="reportContent"></div>
+            <button onclick="printReport()">🖨️ Печать отчёта</button>
+        </div>
     </div>
-    <div id="statisticsContainer"></div>
-</div>
-
-<!-- Модальное окно для отчётов -->
-<div id="reportModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeModal()">&times;</span>
-        <h2>📊 Отчёт по успеваемости</h2>
-        <div id="reportContent"></div>
-        <button onclick="printReport()">🖨️ Печать отчёта</button>
-    </div>
-</div>
 
     <script src="script.js"></script>
 </body>
