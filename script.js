@@ -4,6 +4,15 @@
 // Глобальные переменные
 let currentUser = null;
 let currentTab = 'dashboard';
+let attendanceRecords = [];
+
+// Типы статусов посещаемости для зачётных мероприятий
+const ATTENDANCE_STATUS = {
+    PRESENT: 'present',      // Присутствовал - можно выставить оценку
+    ABSENT: 'absent',        // Отсутствовал - требуется пересдача
+    ILLNESS: 'illness',      // Болезнь - индивидуальный график
+    REASON: 'reason'         // Уважительная причина - индивидуальный график
+};
 
 // Основные данные приложения
 let appData = {
@@ -179,6 +188,10 @@ function loadTabContent(tabName) {
         case 'settings':
             loadSettingsTab();
             break;
+        case 'attendance':
+            loadAttendanceTab();
+            break;
+
     }
 }
 
@@ -998,6 +1011,7 @@ function loadData() {
         if (currentTab === 'dashboard') {
             loadDashboard();
         }
+        
     }
     
     // Загружаем дополнительные данные
@@ -1005,6 +1019,7 @@ function loadData() {
     loadCalendarEvents();
     loadNotificationSettings();
     loadExportSettings();
+    loadAttendanceRecords();
 }
 
 function saveData() {
@@ -4352,3 +4367,636 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('loginUsername').value = 'prepod';
     document.getElementById('loginPassword').value = '123456';
 });
+
+// ==============================================
+// ИНТЕГРИРОВАННАЯ СИСТЕМА: ПОСЕЩАЕМОСТЬ + ОЦЕНКИ
+// ==============================================
+
+function loadAttendanceTab() {
+    const container = document.getElementById('attendanceTab');
+    
+    container.innerHTML = `
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="h3 mb-0">
+                        <i class="bi bi-clipboard-check me-2 text-success"></i>Зачётные мероприятия
+                    </h2>
+                    <button class="btn btn-success" onclick="showMarkAttendanceModal()">
+                        <i class="bi bi-check-square me-1"></i>Отметить присутствие
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card shadow">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Последние зачётные мероприятия</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="recentAttendanceContainer">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-success" role="status"></div>
+                                <p class="mt-2 text-muted">Загрузка данных...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card shadow">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Статистика сдачи</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="attendanceStatsContainer"></div>
+                    </div>
+                </div>
+                
+                <div class="card shadow mt-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Быстрые действия</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-outline-primary w-100 mb-2" onclick="showRetakeStudents()">
+                            <i class="bi bi-arrow-repeat me-1"></i>Студенты на пересдачу
+                        </button>
+                        <button class="btn btn-outline-warning w-100" onclick="generateAttendanceReport()">
+                            <i class="bi bi-graph-up me-1"></i>Отчёт по сдаче
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    setTimeout(() => {
+        loadRecentAttendance();
+        loadAttendanceStats();
+    }, 500);
+}
+
+function showMarkAttendanceModal() {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Получаем зачётные мероприятия (экзамены, зачёты, тесты)
+    const examEvents = calendarEvents.filter(event => 
+        (event.type === 'exam' || event.type === 'test') && 
+        event.date <= today // Только прошедшие мероприятия
+    ).slice(0, 10);
+
+    let eventsOptions = '<option value="">Выберите зачётное мероприятие</option>';
+    examEvents.forEach(event => {
+        const eventDate = new Date(event.date);
+        eventsOptions += `<option value="${event.id}">${event.title} (${eventDate.toLocaleDateString('ru-RU')})</option>`;
+    });
+
+    const modalHTML = `
+        <div class="modal fade" id="markAttendanceModal" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Отметить присутствие на зачётном мероприятии</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="attendanceEvent" class="form-label">Зачётное мероприятие *</label>
+                                <select class="form-select" id="attendanceEvent" onchange="loadStudentsForAttendance()" required>
+                                    ${eventsOptions}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Инструкция</label>
+                                <div class="alert alert-info py-2">
+                                    <small>
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        <strong>Присутствовал</strong> - можно выставить оценку<br>
+                                        <strong>Отсутствовал</strong> - требуется пересдача<br>
+                                        <strong>Болезнь/Причина</strong> - индивидуальный график
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="attendanceStudentsContainer">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Выберите зачётное мероприятие для отметки присутствия
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="button" class="btn btn-success" onclick="saveAttendance()">Сохранить присутствие</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    const modal = new bootstrap.Modal(document.getElementById('markAttendanceModal'));
+    modal.show();
+    
+    document.getElementById('markAttendanceModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+function loadStudentsForAttendance() {
+    const eventId = parseInt(document.getElementById('attendanceEvent').value);
+    if (!eventId) return;
+
+    const event = calendarEvents.find(e => e.id === eventId);
+    if (!event) return;
+
+    const container = document.getElementById('attendanceStudentsContainer');
+    const group = event.group;
+
+    let students = appData.students;
+    if (group) {
+        students = students.filter(s => s.group === group);
+    }
+
+    // Проверяем, есть ли уже оценки за это мероприятие
+    const subject = appData.subjects.find(s => s.name === event.title || event.title.includes(s.name));
+
+    let html = `
+        <h6>Студенты ${group ? `группы ${group}` : ''}</h6>
+        <div class="alert alert-warning mb-3">
+            <small><i class="bi bi-exclamation-triangle me-1"></i>Отметка о присутствии определяет возможность выставления оценки</small>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Студент</th>
+                        <th>Группа</th>
+                        <th width="180">Присутствие</th>
+                        <th width="150">Оценка</th>
+                        <th>Примечание</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    students.forEach(student => {
+        const existingRecord = attendanceRecords.find(record => 
+            record.studentId === student.id && record.eventId === eventId
+        );
+
+        // Проверяем, есть ли уже оценка
+        const existingGrade = subject ? appData.grades.find(grade => 
+            grade.studentId === student.id && grade.subjectId === subject.id
+        ) : null;
+
+        html += `
+            <tr>
+                <td>
+                    <i class="bi bi-person-circle me-2 text-primary"></i>
+                    ${student.name}
+                </td>
+                <td><span class="badge bg-secondary">${student.group}</span></td>
+                <td>
+                    <select class="form-select form-select-sm attendance-status" 
+                            data-student-id="${student.id}" 
+                            data-event-id="${eventId}"
+                            onchange="toggleGradeField(this, ${student.id}, ${eventId})">
+                        <option value="">Не отмечено</option>
+                        <option value="present" ${existingRecord?.status === 'present' ? 'selected' : ''}>
+                            ✅ Присутствовал
+                        </option>
+                        <option value="absent" ${existingRecord?.status === 'absent' ? 'selected' : ''}>
+                            ❌ Отсутствовал
+                        </option>
+                        <option value="illness" ${existingRecord?.status === 'illness' ? 'selected' : ''}>
+                            🏥 Болезнь
+                        </option>
+                        <option value="reason" ${existingRecord?.status === 'reason' ? 'selected' : ''}>
+                            📝 Уважительная причина
+                        </option>
+                    </select>
+                </td>
+                <td>
+                    <select class="form-select form-select-sm attendance-grade" 
+                            data-student-id="${student.id}" 
+                            data-event-id="${eventId}"
+                            ${existingRecord?.status === 'present' ? '' : 'disabled'}>
+                        <option value="">Без оценки</option>
+                        <option value="5" ${existingGrade?.grade === '5' ? 'selected' : ''}>5 (Отлично)</option>
+                        <option value="4" ${existingGrade?.grade === '4' ? 'selected' : ''}>4 (Хорошо)</option>
+                        <option value="3" ${existingGrade?.grade === '3' ? 'selected' : ''}>3 (Удовл.)</option>
+                        <option value="2" ${existingGrade?.grade === '2' ? 'selected' : ''}>2 (Неудовл.)</option>
+                        <option value="зачёт" ${existingGrade?.grade === 'зачёт' ? 'selected' : ''}>Зачёт</option>
+                        <option value="незачёт" ${existingGrade?.grade === 'незачёт' ? 'selected' : ''}>Незачёт</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="text" class="form-control form-control-sm attendance-reason" 
+                           data-student-id="${student.id}" 
+                           data-event-id="${eventId}"
+                           placeholder="Причина отсутствия..."
+                           value="${existingRecord?.reason || ''}"
+                           ${!existingRecord || existingRecord.status === 'present' ? 'disabled' : ''}>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-3">
+            <small class="text-muted">
+                <i class="bi bi-lightbulb me-1"></i>
+                <strong>Совет:</strong> Для отсутствующих студентов создайте мероприятие "Пересдача" в календаре
+            </small>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+function toggleGradeField(selectElement, studentId, eventId) {
+    const gradeSelect = document.querySelector(`.attendance-grade[data-student-id="${studentId}"][data-event-id="${eventId}"]`);
+    const reasonInput = document.querySelector(`.attendance-reason[data-student-id="${studentId}"][data-event-id="${eventId}"]`);
+    
+    if (selectElement.value === 'present') {
+        gradeSelect.disabled = false;
+        reasonInput.disabled = true;
+        reasonInput.value = '';
+    } else {
+        gradeSelect.disabled = true;
+        gradeSelect.value = '';
+        reasonInput.disabled = false;
+    }
+}
+
+function saveAttendance() {
+    const eventId = parseInt(document.getElementById('attendanceEvent').value);
+    if (!eventId) {
+        showAlert('Ошибка', 'Выберите зачётное мероприятие!', 'warning');
+        return;
+    }
+
+    const event = calendarEvents.find(e => e.id === eventId);
+    const subject = appData.subjects.find(s => 
+        s.name === event.title || event.title.includes(s.name)
+    );
+
+    const statusSelects = document.querySelectorAll('.attendance-status');
+    let savedAttendance = 0;
+    let savedGrades = 0;
+
+    statusSelects.forEach(select => {
+        const studentId = parseInt(select.getAttribute('data-student-id'));
+        const status = select.value;
+        
+        if (!status) return; // Пропускаем если статус не выбран
+
+        // Сохраняем запись о присутствии
+        attendanceRecords = attendanceRecords.filter(record => 
+            !(record.studentId === studentId && record.eventId === eventId)
+        );
+
+        const reasonInput = document.querySelector(`.attendance-reason[data-student-id="${studentId}"][data-event-id="${eventId}"]`);
+        const reason = reasonInput ? reasonInput.value : '';
+
+        const record = {
+            id: Date.now() + savedAttendance,
+            studentId: studentId,
+            eventId: eventId,
+            date: event.date,
+            status: status,
+            reason: reason,
+            recordedAt: new Date().toISOString(),
+            recordedBy: currentUser ? currentUser.id : null
+        };
+
+        attendanceRecords.push(record);
+        savedAttendance++;
+
+        // Сохраняем оценку если студент присутствовал и оценка выбрана
+        if (status === 'present' && subject) {
+            const gradeSelect = document.querySelector(`.attendance-grade[data-student-id="${studentId}"][data-event-id="${eventId}"]`);
+            const gradeValue = gradeSelect.value;
+            
+            if (gradeValue) {
+                // Удаляем старую оценку если есть
+                appData.grades = appData.grades.filter(grade => 
+                    !(grade.studentId === studentId && grade.subjectId === subject.id)
+                );
+
+                const grade = {
+                    id: Date.now() + savedGrades + 1000,
+                    studentId: studentId,
+                    subjectId: subject.id,
+                    grade: gradeValue,
+                    date: event.date,
+                    eventId: eventId,
+                    teacherId: currentUser ? currentUser.id : null
+                };
+
+                appData.grades.push(grade);
+                savedGrades++;
+            }
+        }
+    });
+
+    saveAttendanceRecords();
+    saveData();
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('markAttendanceModal'));
+    modal.hide();
+
+    let message = `Присутствие отмечено для ${savedAttendance} студентов`;
+    if (savedGrades > 0) {
+        message += `, выставлено ${savedGrades} оценок`;
+    }
+
+    showAlert('Успех', message, 'success');
+    addNotification('success', 'Зачётное мероприятие', `Обработано: ${savedAttendance} студентов`);
+
+    loadRecentAttendance();
+    loadAttendanceStats();
+}
+
+function loadRecentAttendance() {
+    const container = document.getElementById('recentAttendanceContainer');
+    const recentRecords = attendanceRecords
+        .sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt))
+        .slice(0, 15);
+
+    if (recentRecords.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="bi bi-clipboard-x display-1 text-muted"></i>
+                <h4 class="text-muted mt-3">Нет данных о зачётных мероприятиях</h4>
+                <p class="text-muted">Отметьте присутствие студентов на первом зачётном мероприятии</p>
+                <button class="btn btn-primary mt-2" onclick="showMarkAttendanceModal()">
+                    <i class="bi bi-check-square me-1"></i>Отметить присутствие
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    let html = `
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Мероприятие</th>
+                        <th>Студент</th>
+                        <th>Дата</th>
+                        <th>Присутствие</th>
+                        <th>Оценка</th>
+                        <th>Примечание</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    recentRecords.forEach(record => {
+        const student = appData.students.find(s => s.id === record.studentId);
+        const event = calendarEvents.find(e => e.id === record.eventId);
+        const subject = event ? appData.subjects.find(s => 
+            s.name === event.title || event.title.includes(s.name)
+        ) : null;
+        
+        const grade = subject ? appData.grades.find(g => 
+            g.studentId === record.studentId && g.subjectId === subject.id && g.eventId === record.eventId
+        ) : null;
+
+        const statusBadge = getAttendanceStatusBadge(record.status);
+        const gradeBadge = grade ? getGradeClass(grade.grade) : '';
+
+        html += `
+            <tr>
+                <td>
+                    <strong>${event ? event.title : 'Неизвестное мероприятие'}</strong>
+                    ${event?.group ? `<br><small class="text-muted">${event.group}</small>` : ''}
+                </td>
+                <td>${student ? student.name : 'Неизвестный студент'}</td>
+                <td>${record.date}</td>
+                <td>${statusBadge}</td>
+                <td>${grade ? `<span class="badge ${gradeBadge}">${grade.grade}</span>` : '-'}</td>
+                <td>${record.reason || '-'}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+        <div class="text-center mt-3">
+            <button class="btn btn-outline-primary btn-sm" onclick="showMarkAttendanceModal()">
+                <i class="bi bi-plus-circle me-1"></i>Добавить мероприятие
+            </button>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+function loadAttendanceStats() {
+    const container = document.getElementById('attendanceStatsContainer');
+    
+    const totalEvents = [...new Set(attendanceRecords.map(r => r.eventId))].length;
+    const totalRecords = attendanceRecords.length;
+    
+    const statusCounts = {
+        present: attendanceRecords.filter(r => r.status === 'present').length,
+        absent: attendanceRecords.filter(r => r.status === 'absent').length,
+        illness: attendanceRecords.filter(r => r.status === 'illness').length,
+        reason: attendanceRecords.filter(r => r.status === 'reason').length
+    };
+
+    // Считаем студентов с оценками среди присутствовавших
+    const studentsWithGrades = attendanceRecords
+        .filter(record => record.status === 'present')
+        .filter(record => {
+            const event = calendarEvents.find(e => e.id === record.eventId);
+            const subject = event ? appData.subjects.find(s => 
+                s.name === event.title || event.title.includes(s.name)
+            ) : null;
+            return subject && appData.grades.find(g => 
+                g.studentId === record.studentId && g.subjectId === subject.id
+            );
+        }).length;
+
+    const completionRate = statusCounts.present > 0 ? 
+        Math.round((studentsWithGrades / statusCounts.present) * 100) : 0;
+
+    container.innerHTML = `
+        <div class="text-center mb-3">
+            <div class="display-4 fw-bold text-${completionRate >= 80 ? 'success' : completionRate >= 60 ? 'warning' : 'danger'}">
+                ${completionRate}%
+            </div>
+            <div class="text-muted">Завершённость сдачи</div>
+        </div>
+        
+        <div class="mb-3">
+            <div class="d-flex justify-content-between small mb-2">
+                <span>Присутствовали:</span>
+                <span class="fw-bold">${statusCounts.present}</span>
+            </div>
+            <div class="d-flex justify-content-between small mb-2">
+                <span>С оценкой:</span>
+                <span class="fw-bold text-success">${studentsWithGrades}</span>
+            </div>
+            <div class="d-flex justify-content-between small mb-2">
+                <span>Без оценки:</span>
+                <span class="fw-bold text-warning">${statusCounts.present - studentsWithGrades}</span>
+            </div>
+            <div class="d-flex justify-content-between small mb-2">
+                <span>На пересдачу:</span>
+                <span class="fw-bold text-danger">${statusCounts.absent}</span>
+            </div>
+            <div class="d-flex justify-content-between small">
+                <span>Индивидуальный график:</span>
+                <span class="fw-bold text-info">${statusCounts.illness + statusCounts.reason}</span>
+            </div>
+        </div>
+        
+        <div class="progress mb-2" style="height: 8px;">
+            <div class="progress-bar bg-success" style="width: ${completionRate}%"></div>
+        </div>
+        
+        <div class="small text-muted">
+            Зачётных мероприятий: <strong>${totalEvents}</strong><br>
+            Всего отметок: <strong>${totalRecords}</strong>
+        </div>
+    `;
+}
+
+function showRetakeStudents() {
+    const retakeStudents = attendanceRecords
+        .filter(record => record.status === 'absent')
+        .map(record => {
+            const student = appData.students.find(s => s.id === record.studentId);
+            const event = calendarEvents.find(e => e.id === record.eventId);
+            return { student, event, record };
+        })
+        .filter(item => item.student && item.event);
+
+    if (retakeStudents.length === 0) {
+        showAlert('Информация', 'Нет студентов на пересдачу', 'info');
+        return;
+    }
+
+    let html = `
+        <div class="modal fade" id="retakeModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Студенты на пересдачу</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Студент</th>
+                                        <th>Группа</th>
+                                        <th>Мероприятие</th>
+                                        <th>Дата</th>
+                                        <th>Действие</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+    `;
+
+    retakeStudents.forEach(({ student, event, record }) => {
+        html += `
+            <tr>
+                <td>${student.name}</td>
+                <td><span class="badge bg-secondary">${student.group}</span></td>
+                <td>${event.title}</td>
+                <td>${record.date}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-success" onclick="scheduleRetake(${student.id}, ${event.id})">
+                        <i class="bi bi-calendar-plus me-1"></i>Назначить пересдачу
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    const modal = new bootstrap.Modal(document.getElementById('retakeModal'));
+    modal.show();
+    
+    document.getElementById('retakeModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+function scheduleRetake(studentId, originalEventId) {
+    const student = appData.students.find(s => s.id === studentId);
+    const originalEvent = calendarEvents.find(e => e.id === originalEventId);
+    
+    if (!student || !originalEvent) return;
+
+    // Создаем событие пересдачи в календаре
+    const retakeEvent = {
+        id: Date.now(),
+        title: `Пересдача: ${originalEvent.title}`,
+        type: 'exam',
+        date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +7 дней
+        description: `Пересдача для студента ${student.name}. ${originalEvent.description || ''}`,
+        group: student.group,
+        created: new Date().toISOString(),
+        isRetake: true,
+        originalEventId: originalEventId
+    };
+
+    calendarEvents.push(retakeEvent);
+    saveCalendarEvents();
+
+    showAlert('Успех', `Пересдача для ${student.name} назначена на ${retakeEvent.date}`, 'success');
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('retakeModal'));
+    modal.hide();
+}
+
+function getAttendanceStatusBadge(status) {
+    const badges = {
+        'present': '<span class="badge bg-success"><i class="bi bi-check-lg me-1"></i>Присутствовал</span>',
+        'absent': '<span class="badge bg-danger"><i class="bi bi-x-lg me-1"></i>Отсутствовал</span>',
+        'illness': '<span class="badge bg-warning"><i class="bi bi-plus-circle me-1"></i>Болезнь</span>',
+        'reason': '<span class="badge bg-info"><i class="bi bi-file-text me-1"></i>Уважительная причина</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">Неизвестно</span>';
+}
+
+// Функции сохранения/загрузки
+function saveAttendanceRecords() {
+    localStorage.setItem('e-zachetka-attendance', JSON.stringify(attendanceRecords));
+}
+
+function loadAttendanceRecords() {
+    const saved = localStorage.getItem('e-zachetka-attendance');
+    if (saved) {
+        attendanceRecords = JSON.parse(saved);
+    }
+}
+
