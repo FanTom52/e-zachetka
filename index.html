@@ -108,6 +108,15 @@
                                 <i class="bi bi-gear me-1"></i>Администрирование
                             </a>
                             <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="showTab('groups')">
+                                    <i class="bi bi-people-fill me-2"></i>Группы
+                                </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="showTab('students-management')">
+                                    <i class="bi bi-person-video me-2"></i>Студенты
+                                </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="showTab('teachers-management')">
+                                    <i class="bi bi-person-badge me-2"></i>Преподаватели
+                                </a></li>
                                 <li><a class="dropdown-item" href="#" onclick="showTab('users')">Пользователи</a></li>
                                 <li><a class="dropdown-item" href="#" onclick="showTab('backup')">Резервные копии</a></li>
                             </ul>
@@ -400,6 +409,18 @@
             </div>
 
             <div id="myattendanceTab" class="tab-content" style="display: none;">
+                <!-- Содержимое будет генерироваться динамически -->
+            </div>
+
+            <div id="groupsTab" class="tab-content" style="display: none;">
+                <!-- Содержимое будет генерироваться динамически -->
+            </div>
+
+            <div id="students-managementTab" class="tab-content" style="display: none;">
+                <!-- Содержимое будет генерироваться динамически -->
+            </div>
+
+            <div id="teachers-managementTab" class="tab-content" style="display: none;">
                 <!-- Содержимое будет генерироваться динамически -->
             </div>
 
