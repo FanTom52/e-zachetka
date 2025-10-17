@@ -119,6 +119,16 @@
                                 <li><a class="dropdown-item" href="#" onclick="showTab('backup')">Резервные копии</a></li>
                             </ul>
                         </li>
+                        <li class="nav-item" id="myGradesNavItem" style="display: none;">
+                            <a class="nav-link" href="#" onclick="showTab('mygrades')">
+                                <i class="bi bi-journal-check me-1"></i>Мои оценки
+                            </a>
+                        </li>
+                        <li class="nav-item" id="myAttendanceNavItem" style="display: none;">
+                            <a class="nav-link" href="#" onclick="showTab('myattendance')">
+                                <i class="bi bi-clipboard-check me-1"></i>Моя посещаемость
+                            </a>
+                        </li>
                     </ul>
                     
                     <div class="navbar-nav">
@@ -365,6 +375,14 @@
             </div>
 
             <div id="settingsTab" class="tab-content" style="display: none;">
+                <!-- Содержимое будет генерироваться динамически -->
+            </div>
+
+            <div id="mygradesTab" class="tab-content" style="display: none;">
+                <!-- Содержимое будет генерироваться динамически -->
+            </div>
+
+            <div id="myattendanceTab" class="tab-content" style="display: none;">
                 <!-- Содержимое будет генерироваться динамически -->
             </div>
 
