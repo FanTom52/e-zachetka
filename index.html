@@ -27,21 +27,13 @@
                     <div class="mb-3">
                         <label for="loginUsername" class="form-label">Логин</label>
                         <input type="text" class="form-control form-control-lg" id="loginUsername" 
-                               value="prepod" placeholder="Введите логин" required>
+                            placeholder="Введите логин" required>
                     </div>
                     
                     <div class="mb-3">
                         <label for="loginPassword" class="form-label">Пароль</label>
                         <input type="password" class="form-control form-control-lg" id="loginPassword" 
-                               value="123456" placeholder="Введите пароль" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="loginRole" class="form-label">Роль</label>
-                        <select class="form-select form-select-lg" id="loginRole" required>
-                            <option value="teacher">Преподаватель</option>
-                            <option value="admin">Администратор</option>
-                        </select>
+                            placeholder="Введите пароль" required>
                     </div>
                     
                     <button type="button" class="btn btn-primary btn-lg w-100 mb-3" onclick="login()">
@@ -52,8 +44,9 @@
                 <div class="card bg-light">
                     <div class="card-body">
                         <h6 class="card-title"><i class="bi bi-info-circle me-2"></i>Тестовые аккаунты:</h6>
+                        <p class="mb-1 small"><strong>Администратор:</strong> admin / admin123</p>
                         <p class="mb-1 small"><strong>Преподаватель:</strong> prepod / 123456</p>
-                        <p class="mb-0 small"><strong>Администратор:</strong> admin / admin123</p>
+                        <p class="mb-0 small"><strong>Студент:</strong> student1 / 123456</p>
                     </div>
                 </div>
             </div>
@@ -258,35 +251,59 @@
                         <div class="card shadow">
                             <div class="card-header bg-white py-3">
                                 <h5 class="card-title mb-0">
-                                    <i class="bi bi-lightning me-2 text-warning"></i>Быстрые действия
+                                    <i class="bi bi-lightning me-2 text-warning"></i>
+                                    ${this.currentUser.role === 'student' ? 'Мои действия' : 'Быстрые действия'}
                                 </h5>
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
-                                    <div class="col-sm-6 col-md-3">
-                                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="showTab('students')">
-                                            <i class="bi bi-person-plus fs-4 d-block mb-2"></i>
-                                            Добавить студента
-                                        </button>
-                                    </div>
-                                    <div class="col-sm-6 col-md-3">
-                                        <button class="btn btn-outline-success w-100 h-100 py-3" onclick="showTab('subjects')">
-                                            <i class="bi bi-journal-plus fs-4 d-block mb-2"></i>
-                                            Добавить предмет
-                                        </button>
-                                    </div>
-                                    <div class="col-sm-6 col-md-3">
-                                        <button class="btn btn-outline-info w-100 h-100 py-3" onclick="showTab('grades')">
-                                            <i class="bi bi-pen fs-4 d-block mb-2"></i>
-                                            Выставить оценку
-                                        </button>
-                                    </div>
-                                    <div class="col-sm-6 col-md-3">
-                                        <button class="btn btn-outline-warning w-100 h-100 py-3" onclick="showTab('reports')">
-                                            <i class="bi bi-printer fs-4 d-block mb-2"></i>
-                                            Создать отчёт
-                                        </button>
-                                    </div>
+                                    ${this.currentUser.role === 'student' ? `
+                                        <!-- ДЕЙСТВИЯ ДЛЯ СТУДЕНТА -->
+                                        <div class="col-sm-6 col-md-4">
+                                            <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="showTab('mygrades')">
+                                                <i class="bi bi-journal-check fs-4 d-block mb-2"></i>
+                                                Мои оценки
+                                            </button>
+                                        </div>
+                                        <div class="col-sm-6 col-md-4">
+                                            <button class="btn btn-outline-success w-100 h-100 py-3" onclick="showTab('myattendance')">
+                                                <i class="bi bi-clipboard-check fs-4 d-block mb-2"></i>
+                                                Моя посещаемость
+                                            </button>
+                                        </div>
+                                        <div class="col-sm-6 col-md-4">
+                                            <button class="btn btn-outline-info w-100 h-100 py-3" onclick="showTab('calendar')">
+                                                <i class="bi bi-calendar fs-4 d-block mb-2"></i>
+                                                Расписание
+                                            </button>
+                                        </div>
+                                    ` : `
+                                        <!-- ДЕЙСТВИЯ ДЛЯ ПРЕПОДАВАТЕЛЕЙ И АДМИНОВ -->
+                                        <div class="col-sm-6 col-md-3">
+                                            <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="showTab('students')">
+                                                <i class="bi bi-person-plus fs-4 d-block mb-2"></i>
+                                                Добавить студента
+                                            </button>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <button class="btn btn-outline-success w-100 h-100 py-3" onclick="showTab('subjects')">
+                                                <i class="bi bi-journal-plus fs-4 d-block mb-2"></i>
+                                                Добавить предмет
+                                            </button>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <button class="btn btn-outline-info w-100 h-100 py-3" onclick="showTab('grades')">
+                                                <i class="bi bi-pen fs-4 d-block mb-2"></i>
+                                                Выставить оценку
+                                            </button>
+                                        </div>
+                                        <div class="col-sm-6 col-md-3">
+                                            <button class="btn btn-outline-warning w-100 h-100 py-3" onclick="showTab('reports')">
+                                                <i class="bi bi-printer fs-4 d-block mb-2"></i>
+                                                Создать отчёт
+                                            </button>
+                                        </div>
+                                    `}
                                 </div>
                             </div>
                         </div>
@@ -475,5 +492,14 @@
 
 <!-- Упрощенный app.js -->
 <script src="app.js"></script>
+
+<script>
+document.getElementById('loginPassword').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        login();
+    }
+});
+</script>
+
 </body>
 </html>

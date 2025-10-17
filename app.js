@@ -9,7 +9,8 @@ class EZachetkaApp {
 
     init() {
         this.setupDefaultUsers();
-        this.checkAuthState(); // Проверяем авторизацию при загрузке
+        this.checkAuthState();
+        this.updateNotificationBadge();
         console.log('Электронная зачётка инициализирована!');
     }
 
@@ -95,7 +96,7 @@ class EZachetkaApp {
                 username: 'prepod',
                 password: '123456',
                 name: 'Иванова Мария Петровна',
-                role: 'teacher',
+                role: 'teacher', // ← ПРЕПОДАВАТЕЛЬ
                 subjects: ['Математика', 'Физика'],
                 disabled: false,
                 createdAt: new Date().toISOString()
@@ -105,7 +106,7 @@ class EZachetkaApp {
                 username: 'admin',
                 password: 'admin123',
                 name: 'Администратор Системы',
-                role: 'admin',
+                role: 'admin', // ← АДМИНИСТРАТОР
                 subjects: [],
                 disabled: false,
                 createdAt: new Date().toISOString()
@@ -115,9 +116,31 @@ class EZachetkaApp {
                 username: 'student1',
                 password: '123456',
                 name: 'Петров Иван Сергеевич',
-                role: 'student',
-                studentId: null, // Связь с записью в students
+                role: 'student', // ← СТУДЕНТ
+                studentId: null,
                 group: 'ИТ-21',
+                disabled: false,
+                createdAt: new Date().toISOString()
+            },
+            {
+                id: this.generateId(), 
+                username: 'student2',
+                password: '123456',
+                name: 'Сидорова Анна Владимировна',
+                role: 'student', // ← СТУДЕНТ
+                studentId: null,
+                group: 'ИТ-21',
+                disabled: false,
+                createdAt: new Date().toISOString()
+            },
+            {
+                id: this.generateId(), 
+                username: 'student3',
+                password: '123456',
+                name: 'Козлов Дмитрий Александрович',
+                role: 'student', // ← СТУДЕНТ
+                studentId: null,
+                group: 'ИТ-22',
                 disabled: false,
                 createdAt: new Date().toISOString()
             }
@@ -153,18 +176,22 @@ class EZachetkaApp {
     }
 
     // Система авторизации
-    login(username, password, role) {
+    login(username, password) {
+    console.log('Метод login вызван с:', username, password);
+    
     if (!username || !password) {
         this.showAlert('Ошибка', 'Заполните все поля!', 'warning');
         return false;
     }
 
+    // Ищем пользователя по логину и паролю (без проверки роли)
     const user = this.appData.users.find(u => 
         u.username === username && 
-        u.password === password && 
-        u.role === role &&
+        u.password === password &&
         !u.disabled
     );
+
+    console.log('Найден пользователь:', user);
 
     if (user) {
         // Записываем время входа
@@ -172,34 +199,40 @@ class EZachetkaApp {
         
         // Для студента находим соответствующую запись в students
         if (user.role === 'student') {
-            let studentRecord = this.appData.students.find(s => 
-                s.name === user.name && s.group === user.group
-            );
-            
-            // Если записи нет - создаём
-            if (!studentRecord) {
-                studentRecord = {
-                    id: this.generateId(),
-                    name: user.name,
-                    group: user.group,
-                    createdAt: new Date().toISOString()
-                };
-                this.appData.students.push(studentRecord);
-                this.saveData();
-            }
-            
-            user.studentId = studentRecord.id;
-        }
+    console.log('Обработка студента:', user.name);
+    
+    // Ищем или создаём запись студента
+    let studentRecord = this.appData.students.find(s => 
+        s.name === user.name
+    );
+    
+    if (!studentRecord) {
+        console.log('Создаём запись студента в базе');
+        studentRecord = {
+            id: this.generateId(),
+            name: user.name,
+            group: user.group || 'Не указана',
+            createdAt: new Date().toISOString()
+        };
+        this.appData.students.push(studentRecord);
+        this.saveData();
+        console.log('Создана запись студента:', studentRecord);
+    }
+    
+    user.studentId = studentRecord.id;
+    console.log('Student ID установлен:', user.studentId);
+    }
         
         this.currentUser = user;
         this.appData.system.totalLogins++;
         this.saveData();
         this.saveAuthState();
         this.showMainApp();
+        console.log('Вход успешен, пользователь:', this.currentUser);
         return true;
     }
 
-    this.showAlert('Ошибка входа', 'Неверный логин, пароль или роль!', 'danger');
+    this.showAlert('Ошибка входа', 'Неверный логин или пароль!', 'danger');
     return false;
     }
 
@@ -270,6 +303,9 @@ class EZachetkaApp {
                 case 'myattendance':
                     this.loadMyAttendanceTab();
                     break;
+                case 'notifications':
+                    this.loadNotificationsTab();
+                    break;
                 default:
                     const container = document.getElementById(tabName + 'Tab');
                     if (container) {
@@ -294,28 +330,294 @@ class EZachetkaApp {
 
     // ДАШБОРД
     loadDashboard() {
-        try {
-            const stats = this.calculateStatistics();
-            
-            if (document.getElementById('statStudents')) {
+    try {
+        const stats = this.calculateStatistics();
+        
+        if (document.getElementById('statStudents')) {
+            // Для студентов показываем только их статистику
+            if (this.currentUser.role === 'student') {
+                const studentStats = this.getStudentStatistics(this.currentUser.studentId);
+                const studentSubjectsCount = new Set(
+                    this.appData.grades
+                        .filter(g => g.studentId === this.currentUser.studentId)
+                        .map(g => g.subjectId)
+                ).size;
+                
+                document.getElementById('statStudents').textContent = '1'; // Сам студент
+                document.getElementById('statSubjects').textContent = studentSubjectsCount;
+                document.getElementById('statGrades').textContent = studentStats.totalGrades;
+                document.getElementById('statAverage').textContent = studentStats.averageGrade;
+                
+                // ОБНОВЛЯЕМ ЗАГОЛОВКИ ДЛЯ СТУДЕНТА
+                document.querySelector('.card.border-start-border-primary .text-xs').textContent = 'Мой статус';
+                document.querySelector('.card.border-start-border-success .text-xs').textContent = 'Изучаю предметов';
+                document.querySelector('.card.border-start-border-info .text-xs').textContent = 'Мои оценки';
+                document.querySelector('.card.border-start-border-warning .text-xs').textContent = 'Мой средний балл';
+                
+            } else {
+                // Для преподавателей и админов - полная статистика
                 document.getElementById('statStudents').textContent = stats.totalStudents;
                 document.getElementById('statSubjects').textContent = stats.totalSubjects;
                 document.getElementById('statGrades').textContent = stats.totalGrades;
                 document.getElementById('statAverage').textContent = stats.averageGrade;
                 
-                document.getElementById('currentDate').textContent = new Date().toLocaleDateString('ru-RU', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
+                // ВОЗВРАЩАЕМ СТАНДАРТНЫЕ ЗАГОЛОВКИ
+                document.querySelector('.card.border-start-border-primary .text-xs').textContent = 'Студентов';
+                document.querySelector('.card.border-start-border-success .text-xs').textContent = 'Предметов';
+                document.querySelector('.card.border-start-border-info .text-xs').textContent = 'Оценок';
+                document.querySelector('.card.border-start-border-warning .text-xs').textContent = 'Средний балл';
             }
-
-            this.loadRecentNotifications();
-            this.loadUpcomingEvents();
-        } catch (error) {
-            console.error('Ошибка загрузки дашборда:', error);
+            
+            document.getElementById('currentDate').textContent = new Date().toLocaleDateString('ru-RU', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
         }
+
+        // ОБНОВЛЯЕМ БЫСТРЫЕ ДЕЙСТВИЯ
+        this.loadQuickActions();
+        this.loadRecentNotifications();
+        this.loadUpcomingEvents();
+    } catch (error) {
+        console.error('Ошибка загрузки дашборда:', error);
+    }
+}
+
+// ДОБАВЬ этот новый метод для быстрых действий:
+loadDashboard() {
+    try {
+        const stats = this.calculateStatistics();
+        const isStudent = this.currentUser.role === 'student';
+        
+        // Для студентов показываем только их статистику
+        const studentStats = isStudent ? this.getStudentStatistics(this.currentUser.studentId) : null;
+        const studentSubjectsCount = isStudent ? new Set(
+            this.appData.grades
+                .filter(g => g.studentId === this.currentUser.studentId)
+                .map(g => g.subjectId)
+        ).size : 0;
+
+        const dashboardHTML = `
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="h3 mb-0">
+                            <i class="bi bi-speedometer2 me-2 text-primary"></i>
+                            ${isStudent ? 'Моя зачётная книжка' : 'Главная панель'}
+                        </h2>
+                        <div class="text-muted" id="currentDate">${new Date().toLocaleDateString('ru-RU', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        })}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Статистика -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-start border-primary border-4 shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col me-2">
+                                    <div class="text-xs fw-bold text-primary text-uppercase mb-1">
+                                        ${isStudent ? 'Мой статус' : 'Студентов'}
+                                    </div>
+                                    <div class="h5 mb-0 fw-bold text-gray-800">
+                                        ${isStudent ? '1' : stats.totalStudents}
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-people fs-1 text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-start border-success border-4 shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col me-2">
+                                    <div class="text-xs fw-bold text-success text-uppercase mb-1">
+                                        ${isStudent ? 'Изучаю предметов' : 'Предметов'}
+                                    </div>
+                                    <div class="h5 mb-0 fw-bold text-gray-800">
+                                        ${isStudent ? studentSubjectsCount : stats.totalSubjects}
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-book fs-1 text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-start border-info border-4 shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col me-2">
+                                    <div class="text-xs fw-bold text-info text-uppercase mb-1">
+                                        ${isStudent ? 'Мои оценки' : 'Оценок'}
+                                    </div>
+                                    <div class="h5 mb-0 fw-bold text-gray-800">
+                                        ${isStudent ? studentStats.totalGrades : stats.totalGrades}
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-pencil-square fs-1 text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-start border-warning border-4 shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col me-2">
+                                    <div class="text-xs fw-bold text-warning text-uppercase mb-1">
+                                        ${isStudent ? 'Мой средний балл' : 'Средний балл'}
+                                    </div>
+                                    <div class="h5 mb-0 fw-bold text-gray-800">
+                                        ${isStudent ? studentStats.averageGrade : stats.averageGrade}
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-graph-up fs-1 text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Быстрые действия и уведомления -->
+            <div class="row">
+                <div class="col-lg-8 mb-4">
+                    <div class="card shadow">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-lightning me-2 text-warning"></i>
+                                ${isStudent ? 'Мои действия' : 'Быстрые действия'}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                ${isStudent ? `
+                                    <!-- ДЕЙСТВИЯ ДЛЯ СТУДЕНТА -->
+                                    <div class="col-sm-6 col-md-4">
+                                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="showTab('mygrades')">
+                                            <i class="bi bi-journal-check fs-4 d-block mb-2"></i>
+                                            Мои оценки
+                                        </button>
+                                    </div>
+                                    <div class="col-sm-6 col-md-4">
+                                        <button class="btn btn-outline-success w-100 h-100 py-3" onclick="showTab('myattendance')">
+                                            <i class="bi bi-clipboard-check fs-4 d-block mb-2"></i>
+                                            Моя посещаемость
+                                        </button>
+                                    </div>
+                                    <div class="col-sm-6 col-md-4">
+                                        <button class="btn btn-outline-info w-100 h-100 py-3" onclick="showTab('calendar')">
+                                            <i class="bi bi-calendar fs-4 d-block mb-2"></i>
+                                            Расписание
+                                        </button>
+                                    </div>
+                                ` : `
+                                    <!-- ДЕЙСТВИЯ ДЛЯ ПРЕПОДАВАТЕЛЕЙ И АДМИНОВ -->
+                                    <div class="col-sm-6 col-md-3">
+                                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="showTab('students')">
+                                            <i class="bi bi-person-plus fs-4 d-block mb-2"></i>
+                                            Добавить студента
+                                        </button>
+                                    </div>
+                                    <div class="col-sm-6 col-md-3">
+                                        <button class="btn btn-outline-success w-100 h-100 py-3" onclick="showTab('subjects')">
+                                            <i class="bi bi-journal-plus fs-4 d-block mb-2"></i>
+                                            Добавить предмет
+                                        </button>
+                                    </div>
+                                    <div class="col-sm-6 col-md-3">
+                                        <button class="btn btn-outline-info w-100 h-100 py-3" onclick="showTab('grades')">
+                                            <i class="bi bi-pen fs-4 d-block mb-2"></i>
+                                            Выставить оценку
+                                        </button>
+                                    </div>
+                                    <div class="col-sm-6 col-md-3">
+                                        <button class="btn btn-outline-warning w-100 h-100 py-3" onclick="showTab('reports')">
+                                            <i class="bi bi-printer fs-4 d-block mb-2"></i>
+                                            Создать отчёт
+                                        </button>
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 mb-4">
+                    <div class="card shadow">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-bell me-2 text-danger"></i>Последние уведомления
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="recentNotifications">
+                                <p class="text-muted text-center">Уведомлений нет</p>
+                            </div>
+                            <div class="text-center mt-3">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="showTab('notifications')">
+                                    Все уведомления
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ближайшие события -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-calendar-check me-2 text-success"></i>Ближайшие события
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="upcomingEvents">
+                                <p class="text-muted text-center">Событий на ближайшую неделю нет</p>
+                            </div>
+                            <div class="text-center mt-3">
+                                <button class="btn btn-sm btn-outline-primary" onclick="showTab('calendar')">
+                                    <i class="bi bi-calendar me-1"></i>Весь календарь
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('dashboardTab').innerHTML = dashboardHTML;
+        
+        // Загружаем уведомления и события
+        this.loadRecentNotifications();
+        this.loadUpcomingEvents();
+        
+    } catch (error) {
+        console.error('Ошибка загрузки дашборда:', error);
+    }
     }
 
     calculateStatistics() {
@@ -356,8 +658,76 @@ class EZachetkaApp {
     }
 
     loadRecentNotifications() {
-        try {
-            const container = document.getElementById('recentNotifications');
+    try {
+        const container = document.getElementById('recentNotifications');
+        
+        if (this.currentUser.role === 'student') {
+            // УВЕДОМЛЕНИЯ ДЛЯ СТУДЕНТОВ
+            const studentNotifications = [];
+            const studentGrades = this.appData.grades.filter(g => g.studentId === this.currentUser.studentId);
+            const studentAttendance = this.appData.attendanceEvents ? 
+                this.appData.attendanceEvents.flatMap(event => 
+                    event.records.filter(r => r.studentId === this.currentUser.studentId)
+                ) : [];
+            
+            // Последние оценки
+            const recentGrades = studentGrades.slice(-3).reverse();
+            recentGrades.forEach(grade => {
+                const subject = this.appData.subjects.find(s => s.id === grade.subjectId);
+                studentNotifications.push({
+                    type: 'info',
+                    title: 'Новая оценка',
+                    message: `По предмету "${subject?.name || 'Неизвестный'}": ${grade.grade}`,
+                    date: new Date(grade.date || grade.id)
+                });
+            });
+            
+            // Последние отметки посещаемости
+            const recentAttendance = studentAttendance.slice(-2).reverse();
+            recentAttendance.forEach(record => {
+                const event = this.appData.attendanceEvents.find(e => 
+                    e.records.some(r => r.studentId === this.currentUser.studentId)
+                );
+                const subject = event ? this.appData.subjects.find(s => s.id === event.subjectId) : null;
+                
+                const statusText = record.status === 'present' ? 'присутствовали' : 
+                                 record.status === 'absent' ? 'отсутствовали' : 'уважительная причина';
+                
+                studentNotifications.push({
+                    type: record.status === 'present' ? 'success' : 'warning',
+                    title: 'Отметка посещаемости',
+                    message: `На ${subject?.name || 'мероприятии'} вы ${statusText}`,
+                    date: new Date(record.markedAt)
+                });
+            });
+            
+            // Общие уведомления для студентов
+            studentNotifications.push({
+                type: 'info',
+                title: 'Добро пожаловать!',
+                message: 'Используйте разделы "Мои оценки" и "Моя посещаемость" для просмотра ваших данных',
+                date: new Date()
+            });
+            
+            if (studentNotifications.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">Уведомлений нет</p>';
+                return;
+            }
+            
+            container.innerHTML = studentNotifications.map(notification => `
+                <div class="notification-item ${notification.type} mb-2">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${notification.title}</h6>
+                            <p class="mb-0 small text-muted">${notification.message}</p>
+                        </div>
+                        <small class="text-muted ms-2">${notification.date.toLocaleDateString()}</small>
+                    </div>
+                </div>
+            `).join('');
+            
+        } else {
+            // УВЕДОМЛЕНИЯ ДЛЯ ПРЕПОДАВАТЕЛЕЙ И АДМИНОВ (старый код)
             const notifications = [
                 { type: 'info', title: 'Добро пожаловать!', message: 'Система готова к работе', date: new Date() },
                 { type: 'success', title: 'Статистика', message: `Всего студентов: ${this.appData.students.length}`, date: new Date() }
@@ -379,14 +749,16 @@ class EZachetkaApp {
                     </div>
                 </div>
             `).join('');
-        } catch (error) {
-            console.error('Ошибка загрузки уведомлений:', error);
         }
+    } catch (error) {
+        console.error('Ошибка загрузки уведомлений:', error);
+    }
     }
 
     loadUpcomingEvents() {
     try {
         const container = document.getElementById('upcomingEvents');
+        const isStudent = this.currentUser.role === 'student';
         
         if (!this.appData.calendarEvents || this.appData.calendarEvents.length === 0) {
             container.innerHTML = '<p class="text-muted text-center">Событий на ближайшую неделю нет</p>';
@@ -397,11 +769,22 @@ class EZachetkaApp {
         const nextWeek = new Date(today);
         nextWeek.setDate(today.getDate() + 7);
         
-        const upcomingEvents = this.appData.calendarEvents
+        let upcomingEvents = this.appData.calendarEvents
             .filter(event => {
                 const eventDate = new Date(event.date);
                 return eventDate >= today && eventDate <= nextWeek;
-            })
+            });
+        
+        // Если это студент, фильтруем события по его группе
+        if (isStudent) {
+            upcomingEvents = upcomingEvents.filter(event => 
+                event.group === this.currentUser.group || 
+                !event.group || 
+                event.group === ''
+            );
+        }
+        
+        upcomingEvents = upcomingEvents
             .sort((a, b) => new Date(a.date) - new Date(b.date))
             .slice(0, 5); // Показываем только 5 ближайших
         
@@ -1104,91 +1487,116 @@ class EZachetkaApp {
     }
 
     addGrade() {
-        try {
-            // Проверка наличия студентов и предметов
-            if (this.appData.students.length === 0) {
-                this.showAlert('Ошибка', 'Сначала добавьте студентов!', 'warning');
-                return;
-            }
-
-            if (this.appData.subjects.length === 0) {
-                this.showAlert('Ошибка', 'Сначала добавьте предметы!', 'warning');
-                return;
-            }
-
-            const studentSelect = document.getElementById('gradeStudentSelect');
-            const subjectSelect = document.getElementById('gradeSubjectSelect');
-            const gradeSelect = document.getElementById('gradeSelect');
-            
-            if (!studentSelect || !subjectSelect || !gradeSelect) {
-                this.showAlert('Ошибка', 'Форма не найдена!', 'danger');
-                return;
-            }
-
-            const studentId = studentSelect.value;
-            const subjectId = subjectSelect.value;
-            const gradeValue = gradeSelect.value;
-            
-            if (!studentId || !subjectId || !gradeValue) {
-                this.showAlert('Ошибка', 'Выберите студента, предмет и оценку!', 'warning');
-                return;
-            }
-
-            // Ищем студента и предмет
-            const student = this.appData.students.find(s => s.id === studentId);
-            const subject = this.appData.subjects.find(s => s.id === subjectId);
-
-            if (!student) {
-                this.showAlert('Ошибка', 'Студент не найден!', 'danger');
-                return;
-            }
-
-            if (!subject) {
-                this.showAlert('Ошибка', 'Предмет не найден!', 'danger');
-                return;
-            }
-
-            const grade = {
-                id: this.generateId(),
-                studentId: studentId,
-                subjectId: subjectId,
-                grade: gradeValue,
-                date: new Date().toLocaleDateString('ru-RU'),
-                teacherId: this.currentUser ? this.currentUser.id : null
-            };
-
-            this.appData.grades.push(grade);
-            
-            if (this.saveData()) {
-                document.getElementById('addGradeForm').reset();
-                
-                this.showAlert('Успех', 
-                    `Студенту ${student.name} по предмету "${subject.name}" выставлена оценка: ${gradeValue}`, 
-                    'success');
-                
-                this.updateGradesDisplay();
-            }
-        } catch (error) {
-            console.error('Ошибка добавления оценки:', error);
-            this.showAlert('Ошибка', 'Не удалось добавить оценку', 'danger');
+    try {
+        // Проверка наличия студентов и предметов
+        if (this.appData.students.length === 0) {
+            this.showAlert('Ошибка', 'Сначала добавьте студентов!', 'warning');
+            return;
         }
+
+        if (this.appData.subjects.length === 0) {
+            this.showAlert('Ошибка', 'Сначала добавьте предметы!', 'warning');
+            return;
+        }
+
+        const studentSelect = document.getElementById('gradeStudentSelect');
+        const subjectSelect = document.getElementById('gradeSubjectSelect');
+        const gradeSelect = document.getElementById('gradeSelect');
+        
+        if (!studentSelect || !subjectSelect || !gradeSelect) {
+            this.showAlert('Ошибка', 'Форма не найдена!', 'danger');
+            return;
+        }
+
+        const studentId = studentSelect.value;
+        const subjectId = subjectSelect.value;
+        const gradeValue = gradeSelect.value;
+        
+        if (!studentId || !subjectId || !gradeValue) {
+            this.showAlert('Ошибка', 'Выберите студента, предмет и оценку!', 'warning');
+            return;
+        }
+
+        // Ищем студента и предмет
+        const student = this.appData.students.find(s => s.id === studentId);
+        const subject = this.appData.subjects.find(s => s.id === subjectId);
+
+        if (!student) {
+            this.showAlert('Ошибка', 'Студент не найден!', 'danger');
+            return;
+        }
+
+        if (!subject) {
+            this.showAlert('Ошибка', 'Предмет не найден!', 'danger');
+            return;
+        }
+
+        const grade = {
+            id: this.generateId(),
+            studentId: studentId,
+            subjectId: subjectId,
+            grade: gradeValue,
+            date: new Date().toLocaleDateString('ru-RU'),
+            teacherId: this.currentUser ? this.currentUser.id : null
+        };
+
+        this.appData.grades.push(grade);
+        
+        if (this.saveData()) {
+            document.getElementById('addGradeForm').reset();
+            
+            // СОЗДАЁМ УВЕДОМЛЕНИЕ О НОВОЙ ОЦЕНКЕ
+            this.createGradeNotification(grade);
+            
+            this.showAlert('Успех', 
+                `Студенту ${student.name} по предмету "${subject.name}" выставлена оценка: ${gradeValue}`, 
+                'success');
+            
+            // ОБНОВЛЯЕМ ОТОБРАЖЕНИЕ (один раз!)
+            this.updateGradesDisplay();
+        }
+    } catch (error) {
+        console.error('Ошибка добавления оценки:', error);
+        this.showAlert('Ошибка', 'Не удалось добавить оценку', 'danger');
+    }
     }
 
     deleteGrade(gradeId) {
-        try {
-            if (confirm('Удалить эту оценку?')) {
-                // ИСПРАВЛЕННАЯ СТРОКА - используем строгое сравнение
-                this.appData.grades = this.appData.grades.filter(g => g.id !== gradeId);
-                
-                if (this.saveData()) {
-                    this.showAlert('Удалено', 'Оценка удалена', 'info');
-                    this.updateGradesDisplay();
-                }
+    try {
+        if (confirm('Удалить эту оценку?')) {
+            // ИСПРАВЛЕННАЯ СТРОКА - используем строгое сравнение
+            this.appData.grades = this.appData.grades.filter(g => g.id !== gradeId);
+            
+            if (this.saveData()) {
+                this.showAlert('Удалено', 'Оценка удалена', 'info');
+                // ОБНОВЛЯЕМ ОТОБРАЖЕНИЕ
+                this.updateGradesDisplay();
             }
-        } catch (error) {
-            console.error('Ошибка удаления оценки:', error);
-            this.showAlert('Ошибка', 'Не удалось удалить оценку', 'danger');
         }
+    } catch (error) {
+        console.error('Ошибка удаления оценки:', error);
+        this.showAlert('Ошибка', 'Не удалось удалить оценку', 'danger');
+    }
+    }
+
+    updateGradesDisplay() {
+    try {
+        // Обновляем отображение на всех вкладках, где есть данные об оценках
+        if (this.currentTab === 'grades') {
+            this.loadGradesTab();
+        }
+        if (this.currentTab === 'dashboard') {
+            this.loadDashboard();
+        }
+        if (this.currentTab === 'students') {
+            this.loadStudentsTab();
+        }
+        if (this.currentTab === 'mygrades' && this.currentUser.role === 'student') {
+            this.loadMyGradesTab();
+        }
+    } catch (error) {
+        console.error('Ошибка обновления отображения оценок:', error);
+    }
     }
 
     // ЗАЧЁТНЫЕ МЕРОПРИЯТИЯ - ТОЛЬКО ЗАЧЁТНЫЕ СОБЫТИЯ
@@ -1598,6 +2006,8 @@ saveAttendance() {
         if (this.saveData()) {
             const modal = bootstrap.Modal.getInstance(document.getElementById('markAttendanceModal'));
             if (modal) modal.hide();
+
+            this.createAttendanceNotification(attendanceEvent);
             
             this.showAlert('Успех', 'Присутствие на зачётном мероприятии сохранено!', 'success');
             this.loadAttendanceTab();
@@ -1732,13 +2142,15 @@ loadCalendarTab() {
     try {
         const container = document.getElementById('calendarTab');
         const currentDate = new Date();
+        const isStudent = this.currentUser.role === 'student';
         
         container.innerHTML = `
             <div class="row">
                 <div class="col-12">
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <h2 class="h3 mb-0">
-                            <i class="bi bi-calendar me-2 text-primary"></i>Календарь мероприятий
+                            <i class="bi bi-calendar me-2 text-primary"></i>
+                            ${isStudent ? 'Моё расписание' : 'Календарь мероприятий'}
                         </h2>
                         <div>
                             <button class="btn btn-outline-secondary me-2" onclick="app.prevMonth()">
@@ -1748,29 +2160,33 @@ loadCalendarTab() {
                             <button class="btn btn-outline-secondary ms-2" onclick="app.nextMonth()">
                                 <i class="bi bi-chevron-right"></i>
                             </button>
-                            <button class="btn btn-primary ms-3" onclick="app.showAddEventModal()">
-                                <i class="bi bi-plus-circle me-1"></i>Добавить событие
-                            </button>
+                            ${!isStudent ? `
+                                <button class="btn btn-primary ms-3" onclick="app.showAddEventModal()">
+                                    <i class="bi bi-plus-circle me-1"></i>Добавить событие
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="row mb-3">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="d-flex flex-wrap gap-2">
-                                <span class="badge bg-danger">Экзамен</span>
-                                <span class="badge bg-primary">Зачёт</span>
-                                <span class="badge bg-success">Консультация</span>
-                                <span class="badge bg-warning">Практика</span>
-                                <span class="badge bg-info">ВКР</span>
+            ${!isStudent ? `
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex flex-wrap gap-2">
+                                    <span class="badge bg-danger">Экзамен</span>
+                                    <span class="badge bg-primary">Зачёт</span>
+                                    <span class="badge bg-success">Консультация</span>
+                                    <span class="badge bg-warning">Практика</span>
+                                    <span class="badge bg-info">ВКР</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            ` : ''}
             
             <div class="row">
                 <div class="col-12">
@@ -1813,6 +2229,7 @@ renderCalendar(date) {
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const isStudent = this.currentUser.role === 'student';
     
     for (let i = 0; i < 42; i++) {
         const currentDate = new Date(startDate);
@@ -1820,7 +2237,7 @@ renderCalendar(date) {
         
         const isCurrentMonth = currentDate.getMonth() === date.getMonth();
         const isToday = currentDate.getTime() === today.getTime();
-        const dayEvents = this.getEventsForDate(currentDate);
+        const dayEvents = this.getEventsForDate(currentDate, isStudent);
         
         let dayClass = 'calendar-day';
         if (!isCurrentMonth) dayClass += ' other-month';
@@ -1828,7 +2245,7 @@ renderCalendar(date) {
         if (dayEvents.length > 0) dayClass += ' has-events';
         
         html += `
-            <div class="${dayClass}" onclick="app.showDayEvents('${currentDate.toISOString()}')">
+            <div class="${dayClass}" onclick="app.showDayEvents('${currentDate.toISOString()}', ${isStudent})">
                 <div class="day-number">${currentDate.getDate()}</div>
                 ${this.renderEventDots(dayEvents)}
             </div>
@@ -1839,15 +2256,26 @@ renderCalendar(date) {
     return html;
 }
 
-getEventsForDate(date) {
+getEventsForDate(date, isStudent = false) {
     if (!this.appData.calendarEvents) {
         this.appData.calendarEvents = [];
     }
     
     const dateStr = date.toISOString().split('T')[0];
-    return this.appData.calendarEvents.filter(event => 
+    let events = this.appData.calendarEvents.filter(event => 
         event.date.startsWith(dateStr)
     );
+    
+    // Если это студент, фильтруем события только по его группе
+    if (isStudent && this.currentUser.role === 'student') {
+        events = events.filter(event => 
+            event.group === this.currentUser.group || 
+            !event.group || // События без группы видны всем
+            event.group === ''
+        );
+    }
+    
+    return events;
 }
 
 renderEventDots(events) {
@@ -1874,6 +2302,11 @@ renderEventDots(events) {
 }
 
 showAddEventModal() {
+    // Проверяем, что пользователь не студент
+    if (this.currentUser.role === 'student') {
+        this.showAlert('Ошибка доступа', 'Студенты не могут создавать события', 'warning');
+        return;
+    }
     const modalHTML = `
         <div class="modal fade" id="addEventModal" tabindex="-1">
             <div class="modal-dialog">
@@ -1995,6 +2428,8 @@ addCalendarEvent() {
         if (this.saveData()) {
             const modal = bootstrap.Modal.getInstance(document.getElementById('addEventModal'));
             if (modal) modal.hide();
+
+            this.createCalendarEventNotification(event);
             
             this.showAlert('Успех', 'Событие добавлено в календарь', 'success');
             this.loadCalendarTab();
@@ -2005,9 +2440,9 @@ addCalendarEvent() {
     }
 }
 
-showDayEvents(dateString) {
+showDayEvents(dateString, isStudent = false) {
     const date = new Date(dateString);
-    const events = this.getEventsForDate(date);
+    const events = this.getEventsForDate(date, isStudent);
     
     if (events.length === 0) {
         this.showAlert('Информация', 'На эту дату событий нет', 'info');
@@ -2022,6 +2457,7 @@ showDayEvents(dateString) {
                         <h5 class="modal-title">
                             <i class="bi bi-calendar-date me-2"></i>
                             События на ${date.toLocaleDateString('ru-RU')}
+                            ${isStudent ? ' (моя группа)' : ''}
                         </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
@@ -2062,9 +2498,11 @@ showDayEvents(dateString) {
                         ${event.group ? `<p class="mb-1"><small><i class="bi bi-people me-1"></i>${event.group}</small></p>` : ''}
                         ${event.description ? `<p class="mb-0 mt-2">${event.description}</p>` : ''}
                     </div>
-                    <button class="btn btn-sm btn-outline-danger ms-2" onclick="app.deleteCalendarEvent('${event.id}')">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                    ${!isStudent ? `
+                        <button class="btn btn-sm btn-outline-danger ms-2" onclick="app.deleteCalendarEvent('${event.id}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -3442,7 +3880,7 @@ renderUsersTable(users) {
                         <th>Пользователь</th>
                         <th>Логин</th>
                         <th>Роль</th>
-                        <th>Предметы</th>
+                        <th>Предметы/Группа</th>
                         <th>Статус</th>
                         <th>Последний вход</th>
                         <th>Действия</th>
@@ -3452,17 +3890,23 @@ renderUsersTable(users) {
     `;
     
     users.forEach(user => {
+        // ИСПРАВЛЕННЫЙ БЛОК - правильное отображение роли
         const roleBadge = user.role === 'admin' ? 
             '<span class="badge bg-danger">Администратор</span>' : 
-            '<span class="badge bg-primary">Преподаватель</span>';
+            user.role === 'teacher' ? 
+            '<span class="badge bg-primary">Преподаватель</span>' :
+            '<span class="badge bg-success">Студент</span>';
         
         const statusBadge = user.disabled ? 
             '<span class="badge bg-secondary">Неактивен</span>' : 
             '<span class="badge bg-success">Активен</span>';
         
-        const subjectsList = user.subjects && user.subjects.length > 0 ? 
-            user.subjects.slice(0, 2).join(', ') + (user.subjects.length > 2 ? '...' : '') : 
-            'Не назначены';
+        // ИСПРАВЛЕННЫЙ БЛОК - для студентов показываем группу, для преподавателей - предметы
+        const infoColumn = user.role === 'student' ? 
+            (user.group ? `<span class="badge bg-info">${user.group}</span>` : '<small class="text-muted">Группа не указана</small>') :
+            (user.subjects && user.subjects.length > 0 ? 
+                user.subjects.slice(0, 2).join(', ') + (user.subjects.length > 2 ? '...' : '') : 
+                '<small class="text-muted">Предметы не назначены</small>');
         
         html += `
             <tr class="${user.disabled ? 'table-secondary' : ''}">
@@ -3478,8 +3922,8 @@ renderUsersTable(users) {
                 <td>${user.username}</td>
                 <td>${roleBadge}</td>
                 <td>
-                    <small class="text-muted">${subjectsList}</small>
-                    ${user.subjects && user.subjects.length > 2 ? 
+                    ${infoColumn}
+                    ${user.role !== 'student' && user.subjects && user.subjects.length > 2 ? 
                         `<br><small class="text-primary">+${user.subjects.length - 2} еще</small>` : ''}
                 </td>
                 <td>${statusBadge}</td>
@@ -3541,12 +3985,27 @@ showAddUserModal() {
                             </div>
                             <div class="mb-3">
                                 <label for="userRole" class="form-label">Роль *</label>
-                                <select class="form-select" id="userRole" required>
+                                <select class="form-select" id="userRole" required onchange="app.toggleStudentFields()">
+                                    <option value="student">Студент</option>
                                     <option value="teacher">Преподаватель</option>
                                     <option value="admin">Администратор</option>
                                 </select>
                             </div>
-                            <div class="mb-3">
+                            <div class="mb-3" id="studentGroupField" style="display: none;">
+                                <label for="userGroup" class="form-label">Группа *</label>
+                                <select class="form-select" id="userGroup" required>
+                                    <option value="">Выберите группу</option>
+                                    ${this.getExistingGroups().map(group => 
+                                        `<option value="${group}">${group}</option>`
+                                    ).join('')}
+                                    <option value="new">+ Создать новую группу</option>
+                                </select>
+                            </div>
+                            <div class="mb-3" id="newGroupField" style="display: none;">
+                                <label for="newGroupName" class="form-label">Название новой группы</label>
+                                <input type="text" class="form-control" id="newGroupName" placeholder="Например: ИТ-21">
+                            </div>
+                            <div class="mb-3" id="teacherSubjectsField">
                                 <label for="userSubjects" class="form-label">Предметы (для преподавателя)</label>
                                 <select class="form-select" id="userSubjects" multiple>
                                     ${this.appData.subjects.map(subject => 
@@ -3576,8 +4035,44 @@ showAddUserModal() {
     if (oldModal) oldModal.remove();
     
     document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Добавляем обработчик изменения выбора группы
+    document.getElementById('userGroup')?.addEventListener('change', function(e) {
+        if (e.target.value === 'new') {
+            document.getElementById('newGroupField').style.display = 'block';
+        } else {
+            document.getElementById('newGroupField').style.display = 'none';
+        }
+    });
+    
     const modal = new bootstrap.Modal(document.getElementById('addUserModal'));
     modal.show();
+}
+
+
+toggleStudentFields() {
+    const role = document.getElementById('userRole')?.value;
+    const studentGroupField = document.getElementById('studentGroupField');
+    const teacherSubjectsField = document.getElementById('teacherSubjectsField');
+    
+    if (role === 'student') {
+        studentGroupField.style.display = 'block';
+        teacherSubjectsField.style.display = 'none';
+    } else {
+        studentGroupField.style.display = 'none';
+        teacherSubjectsField.style.display = 'block';
+    }
+}
+
+
+getExistingGroups() {
+    const studentGroups = [...new Set(this.appData.students.map(s => s.group))].filter(g => g);
+    const userGroups = [...new Set(this.appData.users
+        .filter(u => u.role === 'student' && u.group)
+        .map(u => u.group)
+    )].filter(g => g);
+    
+    return [...new Set([...studentGroups, ...userGroups])].sort();
 }
 
 addUser() {
@@ -3588,8 +4083,27 @@ addUser() {
         const role = document.getElementById('userRole')?.value;
         const active = document.getElementById('userActive')?.checked;
         
-        const subjectsSelect = document.getElementById('userSubjects');
-        const subjects = Array.from(subjectsSelect.selectedOptions).map(option => option.value);
+        let group = '';
+        let subjects = [];
+        
+        if (role === 'student') {
+            // Обработка группы для студента
+            const groupSelect = document.getElementById('userGroup')?.value;
+            if (groupSelect === 'new') {
+                group = document.getElementById('newGroupName')?.value.trim();
+            } else {
+                group = groupSelect;
+            }
+            
+            if (!group) {
+                this.showAlert('Ошибка', 'Выберите или создайте группу для студента!', 'warning');
+                return;
+            }
+        } else {
+            // Обработка предметов для преподавателя
+            const subjectsSelect = document.getElementById('userSubjects');
+            subjects = Array.from(subjectsSelect.selectedOptions).map(option => option.value);
+        }
         
         if (!name || !username || !password) {
             this.showAlert('Ошибка', 'Заполните обязательные поля!', 'warning');
@@ -3615,10 +4129,23 @@ addUser() {
             password: password,
             role: role,
             subjects: subjects,
+            group: role === 'student' ? group : undefined,
             disabled: !active,
             createdAt: new Date().toISOString(),
             createdBy: this.currentUser?.id
         };
+        
+        // Для студента создаём соответствующую запись в students
+        if (role === 'student') {
+            const studentRecord = {
+                id: this.generateId(),
+                name: name,
+                group: group,
+                createdAt: new Date().toISOString()
+            };
+            this.appData.students.push(studentRecord);
+            user.studentId = studentRecord.id;
+        }
         
         this.appData.users.push(user);
         
@@ -3668,12 +4195,27 @@ editUser(userId) {
                                 </div>
                                 <div class="mb-3">
                                     <label for="editUserRole" class="form-label">Роль *</label>
-                                    <select class="form-select" id="editUserRole" required>
+                                    <select class="form-select" id="editUserRole" required onchange="app.toggleEditStudentFields()">
+                                        <option value="student" ${user.role === 'student' ? 'selected' : ''}>Студент</option>
                                         <option value="teacher" ${user.role === 'teacher' ? 'selected' : ''}>Преподаватель</option>
                                         <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Администратор</option>
                                     </select>
                                 </div>
-                                <div class="mb-3">
+                                <div class="mb-3" id="editStudentGroupField" style="${user.role === 'student' ? 'display: block;' : 'display: none;'}">
+                                    <label for="editUserGroup" class="form-label">Группа *</label>
+                                    <select class="form-select" id="editUserGroup" required>
+                                        <option value="">Выберите группу</option>
+                                        ${this.getExistingGroups().map(group => 
+                                            `<option value="${group}" ${user.group === group ? 'selected' : ''}>${group}</option>`
+                                        ).join('')}
+                                        <option value="new">+ Создать новую группу</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" id="editNewGroupField" style="display: none;">
+                                    <label for="editNewGroupName" class="form-label">Название новой группы</label>
+                                    <input type="text" class="form-control" id="editNewGroupName" placeholder="Например: ИТ-21">
+                                </div>
+                                <div class="mb-3" id="editTeacherSubjectsField" style="${user.role !== 'student' ? 'display: block;' : 'display: none;'}">
                                     <label for="editUserSubjects" class="form-label">Предметы (для преподавателя)</label>
                                     <select class="form-select" id="editUserSubjects" multiple>
                                         ${this.appData.subjects.map(subject => 
@@ -3704,12 +4246,37 @@ editUser(userId) {
         if (oldModal) oldModal.remove();
         
         document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Добавляем обработчики
+        document.getElementById('editUserGroup')?.addEventListener('change', function(e) {
+            if (e.target.value === 'new') {
+                document.getElementById('editNewGroupField').style.display = 'block';
+            } else {
+                document.getElementById('editNewGroupField').style.display = 'none';
+            }
+        });
+        
         const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
         modal.show();
         
     } catch (error) {
         console.error('Ошибка редактирования пользователя:', error);
         this.showAlert('Ошибка', 'Не удалось открыть форму редактирования', 'danger');
+    }
+}
+
+
+toggleEditStudentFields() {
+    const role = document.getElementById('editUserRole')?.value;
+    const studentGroupField = document.getElementById('editStudentGroupField');
+    const teacherSubjectsField = document.getElementById('editTeacherSubjectsField');
+    
+    if (role === 'student') {
+        studentGroupField.style.display = 'block';
+        teacherSubjectsField.style.display = 'none';
+    } else {
+        studentGroupField.style.display = 'none';
+        teacherSubjectsField.style.display = 'block';
     }
 }
 
@@ -3727,8 +4294,28 @@ updateUser(userId) {
         const role = document.getElementById('editUserRole')?.value;
         const active = document.getElementById('editUserActive')?.checked;
         
-        const subjectsSelect = document.getElementById('editUserSubjects');
-        const subjects = Array.from(subjectsSelect.selectedOptions).map(option => option.value);
+        let group = user.group;
+        let subjects = user.subjects || [];
+        
+        if (role === 'student') {
+            // Обработка группы для студента
+            const groupSelect = document.getElementById('editUserGroup')?.value;
+            if (groupSelect === 'new') {
+                group = document.getElementById('editNewGroupName')?.value.trim();
+            } else {
+                group = groupSelect;
+            }
+            
+            if (!group) {
+                this.showAlert('Ошибка', 'Выберите или создайте группу для студента!', 'warning');
+                return;
+            }
+        } else {
+            // Обработка предметов для преподавателя/админа
+            const subjectsSelect = document.getElementById('editUserSubjects');
+            subjects = Array.from(subjectsSelect.selectedOptions).map(option => option.value);
+            group = undefined; // Убираем группу у не-студентов
+        }
         
         if (!name || !username) {
             this.showAlert('Ошибка', 'Заполните обязательные поля!', 'warning');
@@ -3747,6 +4334,7 @@ updateUser(userId) {
         user.username = username;
         user.role = role;
         user.subjects = subjects;
+        user.group = group;
         user.disabled = !active;
         user.updatedAt = new Date().toISOString();
         user.updatedBy = this.currentUser?.id;
@@ -3757,6 +4345,26 @@ updateUser(userId) {
         } else if (newPassword && newPassword.length > 0) {
             this.showAlert('Ошибка', 'Пароль должен содержать минимум 6 символов!', 'warning');
             return;
+        }
+        
+        // Обновляем запись студента если роль изменилась на студента
+        if (role === 'student') {
+            let studentRecord = this.appData.students.find(s => s.id === user.studentId);
+            if (!studentRecord) {
+                // Создаём новую запись студента
+                studentRecord = {
+                    id: this.generateId(),
+                    name: name,
+                    group: group,
+                    createdAt: new Date().toISOString()
+                };
+                this.appData.students.push(studentRecord);
+                user.studentId = studentRecord.id;
+            } else {
+                // Обновляем существующую запись
+                studentRecord.name = name;
+                studentRecord.group = group;
+            }
         }
         
         if (this.saveData()) {
@@ -4341,6 +4949,599 @@ getAccessDeniedMessage() {
     `;
 }
 
+debugUsers() {
+    console.log('Все пользователи:', this.appData.users);
+    console.log('Все студенты:', this.appData.students);
+    console.log('Текущий пользователь:', this.currentUser);
+}
+
+forceResetData() {
+    localStorage.removeItem('e-zachetka-data');
+    localStorage.removeItem('e-zachetka-currentUser');
+    location.reload();
+}
+
+// ДОБАВЬ этот метод в класс EZachetkaApp и выполни в консоли:
+forceCreateTestUsers() {
+    console.log('Принудительное создание тестовых пользователей...');
+    
+    // Очищаем текущих пользователей
+    this.appData.users = [];
+    
+    // Создаём тестовых пользователей
+    this.appData.users = [
+        {
+            id: this.generateId(),
+            username: 'prepod',
+            password: '123456',
+            name: 'Иванова Мария Петровна',
+            role: 'teacher',
+            subjects: ['Математика', 'Физика'],
+            disabled: false,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: this.generateId(),
+            username: 'admin',
+            password: 'admin123',
+            name: 'Администратор Системы',
+            role: 'admin',
+            subjects: [],
+            disabled: false,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: this.generateId(), 
+            username: 'student1',
+            password: '123456',
+            name: 'Петров Иван Сергеевич',
+            role: 'student',
+            studentId: null,
+            group: 'ИТ-21',
+            disabled: false,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: this.generateId(), 
+            username: 'student2',
+            password: '123456',
+            name: 'Сидорова Анна Владимировна',
+            role: 'student',
+            studentId: null,
+            group: 'ИТ-21',
+            disabled: false,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: this.generateId(), 
+            username: 'student3',
+            password: '123456',
+            name: 'Козлов Дмитрий Александрович',
+            role: 'student',
+            studentId: null,
+            group: 'ИТ-22',
+            disabled: false,
+            createdAt: new Date().toISOString()
+        }
+    ];
+    
+    // Также создаём несколько тестовых предметов
+    this.appData.subjects = [
+        {
+            id: this.generateId(),
+            name: 'Математика',
+            teacherName: 'Иванова Мария Петровна',
+            teacherId: this.appData.users[0].id,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: this.generateId(),
+            name: 'Физика',
+            teacherName: 'Иванова Мария Петровна', 
+            teacherId: this.appData.users[0].id,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: this.generateId(),
+            name: 'Программирование',
+            teacherName: 'Иванова Мария Петровна',
+            teacherId: this.appData.users[0].id,
+            createdAt: new Date().toISOString()
+        }
+    ];
+    
+    // Создаём тестовых студентов в базе студентов
+    this.appData.students = [
+        {
+            id: this.generateId(),
+            name: 'Петров Иван Сергеевич',
+            group: 'ИТ-21',
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: this.generateId(),
+            name: 'Сидорова Анна Владимировna',
+            group: 'ИТ-21',
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: this.generateId(),
+            name: 'Козлов Дмитрий Александрович',
+            group: 'ИТ-22',
+            createdAt: new Date().toISOString()
+        }
+    ];
+    
+    // Связываем пользователей-студентов с записями студентов
+    const studentUser1 = this.appData.users.find(u => u.username === 'student1');
+    const studentRecord1 = this.appData.students.find(s => s.name === 'Петров Иван Сергеевич');
+    if (studentUser1 && studentRecord1) {
+        studentUser1.studentId = studentRecord1.id;
+    }
+    
+    const studentUser2 = this.appData.users.find(u => u.username === 'student2');
+    const studentRecord2 = this.appData.students.find(s => s.name === 'Сидорова Анна Владимировna');
+    if (studentUser2 && studentRecord2) {
+        studentUser2.studentId = studentRecord2.id;
+    }
+    
+    const studentUser3 = this.appData.users.find(u => u.username === 'student3');
+    const studentRecord3 = this.appData.students.find(s => s.name === 'Козлов Дмитрий Александрович');
+    if (studentUser3 && studentRecord3) {
+        studentUser3.studentId = studentRecord3.id;
+    }
+    
+    this.saveData();
+    console.log('Тестовые пользователи созданы!');
+    console.log('Пользователи:', this.appData.users);
+    console.log('Студенты:', this.appData.students);
+    console.log('Предметы:', this.appData.subjects);
+    
+    return 'Готово! Теперь попробуй войти как student1 / 123456';
+}
+
+// СИСТЕМА УВЕДОМЛЕНИЙ
+loadNotificationsTab() {
+    try {
+        const container = document.getElementById('notificationsTab');
+        const userNotifications = this.getUserNotifications();
+        
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="h3 mb-0">
+                            <i class="bi bi-bell me-2 text-warning"></i>Центр уведомлений
+                        </h2>
+                        <div>
+                            <button class="btn btn-outline-secondary me-2" onclick="app.markAllNotificationsAsRead()">
+                                <i class="bi bi-check-all me-1"></i>Прочитать все
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="app.clearAllNotifications()">
+                                <i class="bi bi-trash me-1"></i>Очистить все
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card border-start border-primary border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="text-muted small">Всего уведомлений</div>
+                                    <div class="h4 mb-0">${userNotifications.length}</div>
+                                </div>
+                                <i class="bi bi-bell fs-1 text-primary"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-start border-warning border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="text-muted small">Непрочитанных</div>
+                                    <div class="h4 mb-0">${userNotifications.filter(n => !n.read).length}</div>
+                                </div>
+                                <i class="bi bi-bell-fill fs-1 text-warning"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-start border-success border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="text-muted small">Важных</div>
+                                    <div class="h4 mb-0">${userNotifications.filter(n => n.priority === 'high').length}</div>
+                                </div>
+                                <i class="bi bi-exclamation-triangle fs-1 text-success"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-start border-info border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="text-muted small">За сегодня</div>
+                                    <div class="h4 mb-0">${userNotifications.filter(n => {
+                                        const today = new Date();
+                                        const notifDate = new Date(n.createdAt);
+                                        return notifDate.toDateString() === today.toDateString();
+                                    }).length}</div>
+                                </div>
+                                <i class="bi bi-clock-history fs-1 text-info"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-list-ul me-2"></i>Мои уведомления
+                                </h5>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary ${this.getNotificationFilter() === 'all' ? 'active' : ''}" 
+                                            onclick="app.setNotificationFilter('all')">Все</button>
+                                    <button class="btn btn-outline-warning ${this.getNotificationFilter() === 'unread' ? 'active' : ''}" 
+                                            onclick="app.setNotificationFilter('unread')">Непрочитанные</button>
+                                    <button class="btn btn-outline-success ${this.getNotificationFilter() === 'important' ? 'active' : ''}" 
+                                            onclick="app.setNotificationFilter('important')">Важные</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            ${this.renderNotificationsList(userNotifications)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Ошибка загрузки центра уведомлений:', error);
+        this.showAlert('Ошибка', 'Не удалось загрузить уведомления', 'danger');
+    }
+}
+
+getUserNotifications() {
+    if (!this.appData.notifications) {
+        this.appData.notifications = [];
+    }
+    
+    // Фильтруем уведомления для текущего пользователя
+    return this.appData.notifications.filter(notification => {
+        // Уведомления без указания пользователя видны всем
+        if (!notification.userId && !notification.group && !notification.role) {
+            return true;
+        }
+        
+        // Проверяем по userId
+        if (notification.userId && notification.userId === this.currentUser.id) {
+            return true;
+        }
+        
+        // Проверяем по группе (для студентов)
+        if (notification.group && this.currentUser.role === 'student' && notification.group === this.currentUser.group) {
+            return true;
+        }
+        
+        // Проверяем по роли
+        if (notification.role && notification.role === this.currentUser.role) {
+            return true;
+        }
+        
+        return false;
+    }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+renderNotificationsList(notifications) {
+    const filter = this.getNotificationFilter();
+    let filteredNotifications = notifications;
+    
+    // Применяем фильтр
+    switch (filter) {
+        case 'unread':
+            filteredNotifications = notifications.filter(n => !n.read);
+            break;
+        case 'important':
+            filteredNotifications = notifications.filter(n => n.priority === 'high');
+            break;
+    }
+    
+    if (filteredNotifications.length === 0) {
+        return `
+            <div class="text-center py-5">
+                <i class="bi bi-bell-slash display-1 text-muted"></i>
+                <h4 class="text-muted mt-3">Уведомлений нет</h4>
+                <p class="text-muted">${filter === 'all' ? 'Здесь будут появляться ваши уведомления' : 
+                                      filter === 'unread' ? 'Все уведомления прочитаны' : 
+                                      'Важных уведомлений нет'}</p>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="list-group">
+            ${filteredNotifications.map(notification => `
+                <div class="list-group-item ${!notification.read ? 'bg-light' : ''}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1 me-3">
+                            <div class="d-flex align-items-center mb-2">
+                                ${this.getNotificationIcon(notification.type)}
+                                <h6 class="mb-0 ms-2 ${!notification.read ? 'fw-bold' : ''}">
+                                    ${notification.title}
+                                    ${notification.priority === 'high' ? '<span class="badge bg-danger ms-2">Важно</span>' : ''}
+                                </h6>
+                            </div>
+                            <p class="mb-2 text-muted">${notification.message}</p>
+                            <div class="d-flex flex-wrap gap-2">
+                                <small class="text-muted">
+                                    <i class="bi bi-clock me-1"></i>
+                                    ${new Date(notification.createdAt).toLocaleString('ru-RU')}
+                                </small>
+                                ${notification.relatedEvent ? `
+                                    <small class="text-primary">
+                                        <i class="bi bi-calendar-event me-1"></i>
+                                        Связано с событием
+                                    </small>
+                                ` : ''}
+                                ${notification.relatedGrade ? `
+                                    <small class="text-success">
+                                        <i class="bi bi-journal-check me-1"></i>
+                                        Новая оценка
+                                    </small>
+                                ` : ''}
+                            </div>
+                        </div>
+                        <div class="btn-group btn-group-sm flex-shrink-0">
+                            ${!notification.read ? `
+                                <button class="btn btn-outline-success" onclick="app.markNotificationAsRead('${notification.id}')" 
+                                        title="Отметить как прочитанное">
+                                    <i class="bi bi-check"></i>
+                                </button>
+                            ` : ''}
+                            <button class="btn btn-outline-danger" onclick="app.deleteNotification('${notification.id}')" 
+                                    title="Удалить уведомление">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+getNotificationIcon(type) {
+    const icons = {
+        'calendar': 'bi-calendar-event text-primary',
+        'grade': 'bi-journal-check text-success', 
+        'attendance': 'bi-clipboard-check text-info',
+        'system': 'bi-gear text-secondary',
+        'warning': 'bi-exclamation-triangle text-warning',
+        'info': 'bi-info-circle text-primary'
+    };
+    
+    const iconClass = icons[type] || 'bi-bell text-muted';
+    return `<i class="bi ${iconClass} fs-5"></i>`;
+}
+
+getNotificationFilter() {
+    return localStorage.getItem('notificationFilter') || 'all';
+}
+
+setNotificationFilter(filter) {
+    localStorage.setItem('notificationFilter', filter);
+    this.loadNotificationsTab();
+}
+
+markNotificationAsRead(notificationId) {
+    try {
+        const notification = this.appData.notifications.find(n => n.id === notificationId);
+        if (notification) {
+            notification.read = true;
+            notification.readAt = new Date().toISOString();
+            this.saveData();
+            this.updateNotificationBadge();
+            this.loadNotificationsTab();
+        }
+    } catch (error) {
+        console.error('Ошибка отметки уведомления как прочитанного:', error);
+    }
+}
+
+markAllNotificationsAsRead() {
+    try {
+        const userNotifications = this.getUserNotifications();
+        userNotifications.forEach(notification => {
+            if (!notification.read) {
+                notification.read = true;
+                notification.readAt = new Date().toISOString();
+            }
+        });
+        
+        this.saveData();
+        this.updateNotificationBadge();
+        this.loadNotificationsTab();
+        this.showAlert('Успех', 'Все уведомления отмечены как прочитанные', 'success');
+    } catch (error) {
+        console.error('Ошибка отметки всех уведомлений:', error);
+    }
+}
+
+deleteNotification(notificationId) {
+    try {
+        this.appData.notifications = this.appData.notifications.filter(n => n.id !== notificationId);
+        this.saveData();
+        this.updateNotificationBadge();
+        this.loadNotificationsTab();
+        this.showAlert('Удалено', 'Уведомление удалено', 'info');
+    } catch (error) {
+        console.error('Ошибка удаления уведомления:', error);
+    }
+}
+
+clearAllNotifications() {
+    try {
+        if (confirm('Вы уверены, что хотите удалить все уведомления? Это действие нельзя отменить.')) {
+            const userNotifications = this.getUserNotifications();
+            this.appData.notifications = this.appData.notifications.filter(n => 
+                !userNotifications.some(un => un.id === n.id)
+            );
+            
+            this.saveData();
+            this.updateNotificationBadge();
+            this.loadNotificationsTab();
+            this.showAlert('Удалено', 'Все уведомления удалены', 'info');
+        }
+    } catch (error) {
+        console.error('Ошибка очистки уведомлений:', error);
+    }
+}
+
+// СИСТЕМА СОЗДАНИЯ УВЕДОМЛЕНИЙ
+createNotification(notificationData) {
+    try {
+        if (!this.appData.notifications) {
+            this.appData.notifications = [];
+        }
+        
+        const notification = {
+            id: this.generateId(),
+            type: notificationData.type || 'info',
+            title: notificationData.title,
+            message: notificationData.message,
+            priority: notificationData.priority || 'normal',
+            userId: notificationData.userId, // Для конкретного пользователя
+            group: notificationData.group,    // Для группы студентов
+            role: notificationData.role,      // Для роли
+            relatedEvent: notificationData.relatedEvent,
+            relatedGrade: notificationData.relatedGrade,
+            read: false,
+            createdAt: new Date().toISOString(),
+            createdBy: this.currentUser?.id
+        };
+        
+        this.appData.notifications.push(notification);
+        this.saveData();
+        this.updateNotificationBadge();
+        
+        // Показываем всплывающее уведомление для важных сообщений
+        if (notification.priority === 'high') {
+            this.showAlert(notification.title, notification.message, 'warning');
+        }
+        
+        return notification;
+    } catch (error) {
+        console.error('Ошибка создания уведомления:', error);
+    }
+}
+
+updateNotificationBadge() {
+    try {
+        const badge = document.getElementById('notificationBadgeNav');
+        const userNotifications = this.getUserNotifications();
+        const unreadCount = userNotifications.filter(n => !n.read).length;
+        
+        if (badge) {
+            if (unreadCount > 0) {
+                badge.textContent = unreadCount;
+                badge.style.display = 'inline';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка обновления бейджа уведомлений:', error);
+    }
+}
+
+// АВТОМАТИЧЕСКИЕ УВЕДОМЛЕНИЯ
+
+// Уведомление о новой оценке
+createGradeNotification(grade) {
+    const student = this.appData.students.find(s => s.id === grade.studentId);
+    const subject = this.appData.subjects.find(s => s.id === grade.subjectId);
+    
+    if (student && subject) {
+        this.createNotification({
+            type: 'grade',
+            title: 'Новая оценка',
+            message: `Студенту ${student.name} по предмету "${subject.name}" выставлена оценка: ${grade.grade}`,
+            userId: this.findStudentUserId(student.id), // Находим пользователя-студента
+            relatedGrade: grade.id,
+            priority: 'normal'
+        });
+    }
+}
+
+// Уведомление о зачётном мероприятии
+createAttendanceNotification(event) {
+    const subject = this.appData.subjects.find(s => s.id === event.subjectId);
+    
+    if (subject && event.group) {
+        this.createNotification({
+            type: 'attendance', 
+            title: 'Зачётное мероприятие',
+            message: `Проведено мероприятие по предмету "${subject.name}" для группы ${event.group}`,
+            group: event.group, // Для всех студентов группы
+            relatedEvent: event.id,
+            priority: 'normal'
+        });
+    }
+}
+
+// Уведомление о предстоящем событии
+createCalendarEventNotification(event) {
+    const subject = this.appData.subjects.find(s => s.id === event.subjectId);
+    const daysUntilEvent = Math.ceil((new Date(event.date) - new Date()) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntilEvent <= 1) { // Уведомляем за 1 день
+        this.createNotification({
+            type: 'calendar',
+            title: 'Напоминание о событии',
+            message: `Завтра: ${event.title}${subject ? ` по предмету "${subject.name}"` : ''}`,
+            group: event.group,
+            relatedEvent: event.id,
+            priority: 'high'
+        });
+    }
+}
+
+// Системные уведомления
+createSystemNotification(title, message, priority = 'normal') {
+    this.createNotification({
+        type: 'system',
+        title: title,
+        message: message,
+        priority: priority
+    });
+}
+
+// Вспомогательный метод для поиска userId студента
+findStudentUserId(studentId) {
+    const student = this.appData.students.find(s => s.id === studentId);
+    if (student) {
+        const user = this.appData.users.find(u => 
+            u.role === 'student' && u.name === student.name && u.group === student.group
+        );
+        return user?.id;
+    }
+    return null;
+}
+
 
 
 }
@@ -4353,9 +5554,15 @@ function login() {
     try {
         const username = document.getElementById('loginUsername').value;
         const password = document.getElementById('loginPassword').value;
-        const role = document.getElementById('loginRole').value;
         
-        app.login(username, password, role);
+        console.log('Попытка входа:', username, password); // для отладки
+        
+        // Теперь передаём только логин и пароль
+        if (app.login(username, password)) {
+            console.log('Успешный вход');
+        } else {
+            console.log('Ошибка входа');
+        }
     } catch (error) {
         console.error('Ошибка входа:', error);
         alert('Произошла ошибка при входе в систему');
